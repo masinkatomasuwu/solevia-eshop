@@ -1,6 +1,9 @@
-# - desktopová administrativní aplikace pro e-shop Solevia
-# - vytvořeno pomocí knihovny PyQt6 (GUI) a mysql-connector (DB)
-# - DOPLNĚNO: Funkční přihlašování propojené s webem
+# ==============================================================================
+# DESKTOPOVÁ ADMINISTRATIVNÍ APLIKACE PRO E-SHOP SOLEVIA
+# ==============================================================================
+# - Cíl: Správa produktů a uživatelů přímo v MySQL databázi
+# - Technologie: PyQt6 (vzhled), mysql-connector (data), werkzeug (bezpečnost)
+# ==============================================================================
 
 import sys
 import os
@@ -17,6 +20,7 @@ from PyQt6.QtCore import Qt
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # --- KONFIGURACE DATABÁZE ---
+# Tyto údaje musí odpovídat nastavení tvého školního serveru
 DB_CONFIG = {
     'host': 'dbs.spskladno.cz',
     'database': 'vyuka20',
@@ -24,24 +28,28 @@ DB_CONFIG = {
     'password': 'spsnet'
 }
 
-
-# - funkce pro vytvoření spojení s MySQL serverem
 def get_db_connection():
+    """Funkce pro vytvoření nového spojení s databází.
+    Vrací objekt spojení nebo None v případě chyby."""
     try:
         return mysql.connector.connect(**DB_CONFIG)
     except Error as e:
+        # Pokud se nepodaří připojit (např. bez VPN), zobrazí se kritická chyba
         QMessageBox.critical(None, "Chyba", f"DB nepřipojeno:\n{e}")
         return None
 
 
-# --- NOVÉ: DIALOG PRO PŘIHLÁŠENÍ ---
+# --- SEKCE 1: PŘIHLÁŠENÍ (LOGIN) ---
 class LoginDialog(QDialog):
+    """Vyskakovací okno, které ověřuje identitu administrátora před vstupem do aplikace."""
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Přihlášení – Solevia Admin")
         self.setFixedSize(380, 220)
+        # Odstranění otazníku z horní lišty okna
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
 
+        # Rozvržení formuláře (Label vlevo, Input vpravo)
         layout = QFormLayout(self)
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(15)
@@ -52,7 +60,7 @@ class LoginDialog(QDialog):
 
         self.password_edit = QLineEdit()
         self.password_edit.setPlaceholderText("Heslo")
-        self.password_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password_edit.setEchoMode(QLineEdit.EchoMode.Password) # Skryje znaky hesla (hvězdičky)
         self.password_edit.setFixedHeight(35)
 
         layout.addRow("Uživatel:", self.username_edit)
@@ -60,6 +68,7 @@ class LoginDialog(QDialog):
 
         self.login_btn = QPushButton("VSTOUPIT DO ADMINISTRACE")
         self.login_btn.setFixedHeight(45)
+        # CSS stylování tlačítka pro modernější vzhled
         self.login_btn.setStyleSheet("""
             QPushButton {
                 background-color: #1a3c6e;
@@ -75,6 +84,7 @@ class LoginDialog(QDialog):
         layout.addRow(self.login_btn)
 
     def verify_login(self):
+        """Ověří zadané jméno a heslo proti databázi."""
         username = self.username_edit.text().strip()
         password = self.password_edit.text().strip()
 
@@ -87,14 +97,16 @@ class LoginDialog(QDialog):
 
         try:
             cursor = conn.cursor(dictionary=True)
-            # Hledáme admina v tabulce uživatelů webu
+            # Dotaz na uživatele v databázi webu
             cursor.execute("SELECT password, is_admin FROM student20_users WHERE username = %s", (username,))
             user = cursor.fetchone()
 
             if user:
+                # Kontrola, zda má uživatel administrátorskou roli
                 if user['is_admin'] == 1:
+                    # Bezpečné porovnání hashe hesla pomocí Werkzeug
                     if check_password_hash(user['password'], password):
-                        self.accept()  # Přihlášení ok
+                        self.accept()  # Zavře dialog a vrátí 'Accepted' (úspěch)
                     else:
                         QMessageBox.warning(self, "Chyba", "Nesprávné heslo!")
                 else:
@@ -109,8 +121,9 @@ class LoginDialog(QDialog):
             conn.close()
 
 
-# --- DIALOG PRO PRODUKTY (Add/Edit) ---
+# --- SEKCE 2: PRODUKTY (DIALOG) ---
 class ProductDialog(QDialog):
+    """Formulář pro přidávání nových nebo úpravu stávajících bot."""
     def __init__(self, parent=None, product_id=None):
         super().__init__(parent)
         self.product_id = product_id
@@ -120,18 +133,21 @@ class ProductDialog(QDialog):
         layout = QFormLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
 
+        # Vstupní pole formuláře
         self.name_edit = QLineEdit()
         layout.addRow("Název *", self.name_edit)
 
         self.desc_edit = QTextEdit()
         layout.addRow("Popis", self.desc_edit)
 
+        # Pole pro cenu (DoubleSpinBox = desetinná čísla)
         self.price_edit = QDoubleSpinBox()
         self.price_edit.setRange(0, 999999)
         self.price_edit.setDecimals(2)
         self.price_edit.setSuffix(" Kč")
         layout.addRow("Cena *", self.price_edit)
 
+        # Pole pro slevu (SpinBox = celá čísla)
         self.discount_edit = QSpinBox()
         self.discount_edit.setRange(0, 99)
         self.discount_edit.setSuffix(" %")
@@ -141,6 +157,7 @@ class ProductDialog(QDialog):
         self.stock_edit.setRange(0, 999999)
         layout.addRow("Skladem *", self.stock_edit)
 
+        # Sekce pro obrázek
         self.photo_path = ""
         self.photo_label = QLabel("Fotka: žádná")
         layout.addRow(self.photo_label)
@@ -154,16 +171,19 @@ class ProductDialog(QDialog):
         layout.addRow(save_btn)
 
         self.setLayout(layout)
+        # Pokud upravujeme existující produkt, načteme jeho data
         if product_id:
             self.load_product()
 
     def select_photo(self):
+        """Otevře okno pro výběr souboru v počítači."""
         file_path, _ = QFileDialog.getOpenFileName(self, "Vybrat fotku", "", "Obrázky (*.jpg *.jpeg *.png)")
         if file_path:
             self.photo_path = file_path
             self.photo_label.setText(f"Fotka: {os.path.basename(file_path)}")
 
     def load_product(self):
+        """Vytáhne data konkrétního produktu z databáze do polí formuláře."""
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor(dictionary=True)
@@ -182,6 +202,7 @@ class ProductDialog(QDialog):
                 self.photo_label.setText(f"Aktuální: {product['image'] or 'žádná'}")
 
     def save(self):
+        """Uloží změny. Pokud je vybrána nová fotka, zkopíruje ji do složky 'static/images' webu."""
         name = self.name_edit.text().strip()
         if not name:
             QMessageBox.warning(self, "Chyba", "Název je povinný!")
@@ -190,13 +211,14 @@ class ProductDialog(QDialog):
         db_image = None
         if self.photo_path:
             filename = os.path.basename(self.photo_path)
+            # Zjištění cesty k webové složce images (předpokládá strukturu projektu)
             BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             dest_dir = os.path.join(BASE_DIR, 'app', 'static', 'images')
             os.makedirs(dest_dir, exist_ok=True)
             dest = os.path.join(dest_dir, filename)
             try:
-                shutil.copy(self.photo_path, dest)
-                db_image = "images/" + filename
+                shutil.copy(self.photo_path, dest) # Zkopírování souboru z disku do projektu
+                db_image = "images/" + filename # Relativní cesta pro uložení do DB
             except Exception as e:
                 QMessageBox.warning(self, "Chyba", f"Nepodařilo se zkopírovat fotku:\n{e}")
                 return
@@ -207,6 +229,7 @@ class ProductDialog(QDialog):
         try:
             cursor = conn.cursor()
             if self.product_id:
+                # REŽIM ÚPRAVY (UPDATE)
                 if db_image:
                     cursor.execute("""
                         UPDATE student20_products SET name = %s, description = %s, price = %s, stock = %s, image = %s, discount_percent = %s WHERE id = %s
@@ -218,6 +241,7 @@ class ProductDialog(QDialog):
                     """, (name, self.desc_edit.toPlainText().strip(), self.price_edit.value(), self.stock_edit.value(),
                           self.discount_edit.value(), self.product_id))
             else:
+                # REŽIM NOVÉHO PRODUKTU (INSERT)
                 cursor.execute("""
                     INSERT INTO student20_products (name, description, price, stock, image, discount_percent) VALUES (%s, %s, %s, %s, %s, %s)
                 """, (name, self.desc_edit.toPlainText().strip(), self.price_edit.value(), self.stock_edit.value(),
@@ -234,8 +258,9 @@ class ProductDialog(QDialog):
             conn.close()
 
 
-# --- DIALOG PRO UŽIVATELE ---
+# --- SEKCE 3: UŽIVATELÉ (DIALOG) ---
 class UserDialog(QDialog):
+    """Formulář pro správu uživatelských účtů e-shopu."""
     def __init__(self, parent=None, user_id=None):
         super().__init__(parent)
         self.user_id = user_id
@@ -265,6 +290,7 @@ class UserDialog(QDialog):
             self.load_user()
 
     def load_user(self):
+        """Načte data uživatele z DB do formuláře."""
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor(dictionary=True)
@@ -278,6 +304,7 @@ class UserDialog(QDialog):
                 self.is_admin_check.setChecked(bool(user['is_admin']))
 
     def save(self):
+        """Uloží uživatele. Pokud se zadává heslo, vygeneruje se bezpečný hash."""
         username = self.username_edit.text().strip()
         password = self.password_edit.text().strip()
         email = self.email_edit.text().strip()
@@ -287,6 +314,7 @@ class UserDialog(QDialog):
             QMessageBox.warning(self, "Chyba", "Uživatelské jméno je povinné!")
             return
 
+        # Podmínka pro nové uživatele: Heslo musí existovat a být silné
         if self.user_id is None and (not password or len(password) < 8):
             QMessageBox.warning(self, "Chyba hesla", "Heslo musí mít min. 8 znaků!")
             return
@@ -297,11 +325,13 @@ class UserDialog(QDialog):
         try:
             cursor = conn.cursor()
             if self.user_id is None:
+                # Nový záznam: vygenerování hashe (heslo se nikdy neukládá v čistém textu!)
                 hashed_pw = generate_password_hash(password)
                 cursor.execute("""
                     INSERT INTO student20_users (username, password, email, is_admin) VALUES (%s, %s, %s, %s)
                 """, (username, hashed_pw, email, is_admin))
             else:
+                # Úprava: pokud je heslo vyplněné, zaktualizuje se hash, jinak se nemění
                 if password:
                     hashed_pw = generate_password_hash(password)
                     cursor.execute("""
@@ -323,13 +353,15 @@ class UserDialog(QDialog):
             conn.close()
 
 
-# --- HLAVNÍ OKNO APLIKACE ---
+# --- SEKCE 4: HLAVNÍ OKNO (ADMIN APP) ---
 class AdminApp(QMainWindow):
+    """Hlavní ovládací centrum s kartami (Produkty / Uživatelé)."""
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Admin – Solevia Desktop")
         self.setGeometry(100, 100, 1100, 700)
 
+        # TabWidget umožňuje přepínat mezi sekcemi v jednom okně
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
 
@@ -339,13 +371,16 @@ class AdminApp(QMainWindow):
         self.tab_users = QWidget()
         self.tabs.addTab(self.tab_users, "Uživatelé")
 
+        # Inicializace obsahu obou karet
         self.init_tab(self.tab_products, "Produkty")
         self.init_tab(self.tab_users, "Uživatelé")
 
     def init_tab(self, tab, tab_name):
+        """Vytvoří tabulku a ovládací tlačítka pro konkrétní kartu."""
         layout = QVBoxLayout()
         table = QTableWidget()
 
+        # Definice sloupců podle typu karty
         if tab_name == "Produkty":
             headers = ['ID', 'Název produktu', 'Cena', 'Sleva', 'Skladem', 'Popis', 'Fotka']
         else:
@@ -353,9 +388,10 @@ class AdminApp(QMainWindow):
 
         table.setColumnCount(len(headers))
         table.setHorizontalHeaderLabels(headers)
-        table.horizontalHeader().setStretchLastSection(True)
+        table.horizontalHeader().setStretchLastSection(True) # Fotka/Datum vyplní zbytek místa
         layout.addWidget(table)
 
+        # Horizontální rozvržení tlačítek pod tabulkou
         btn_layout = QHBoxLayout()
         btn_load = QPushButton(f"Obnovit {tab_name.lower()}")
         btn_load.clicked.connect(lambda: self.load_data(tab_name, table))
@@ -379,6 +415,7 @@ class AdminApp(QMainWindow):
         self.load_data(tab_name, table)
 
     def load_data(self, tab_name, table):
+        """Načte všechna data z DB a naplní jimi GUI tabulku."""
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor(dictionary=True)
@@ -391,8 +428,7 @@ class AdminApp(QMainWindow):
                     table.setItem(row_idx, 0, QTableWidgetItem(str(r['id'])))
                     table.setItem(row_idx, 1, QTableWidgetItem(str(r['name'])))
                     table.setItem(row_idx, 2, QTableWidgetItem(f"{r['price']:.2f} Kč"))
-                    table.setItem(row_idx, 3,
-                                  QTableWidgetItem(f"{r['discount_percent']}%" if r['discount_percent'] else "0%"))
+                    table.setItem(row_idx, 3, QTableWidgetItem(f"{r['discount_percent']}%" if r['discount_percent'] else "0%"))
                     table.setItem(row_idx, 4, QTableWidgetItem(f"{r['stock']} ks"))
                     table.setItem(row_idx, 5, QTableWidgetItem(str(r['description'] or '')))
                     table.setItem(row_idx, 6, QTableWidgetItem(str(r['image'] or 'bez fotky')))
@@ -411,22 +447,24 @@ class AdminApp(QMainWindow):
             conn.close()
 
     def open_add_dialog(self, tab_name, table):
+        """Otevře prázdný formulář pro přidání nového záznamu."""
         dialog = ProductDialog(self) if tab_name == "Produkty" else UserDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.load_data(tab_name, table)
 
     def open_edit_dialog(self, tab_name, table):
+        """Zjistí ID vybraného řádku a otevře formulář pro úpravu."""
         selected = table.currentRow()
         if selected < 0:
             QMessageBox.warning(self, "Chyba", "Vyberte položku!")
             return
         item_id = int(table.item(selected, 0).text())
-        dialog = ProductDialog(self, product_id=item_id) if tab_name == "Produkty" else UserDialog(self,
-                                                                                                   user_id=item_id)
+        dialog = ProductDialog(self, product_id=item_id) if tab_name == "Produkty" else UserDialog(self, user_id=item_id)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.load_data(tab_name, table)
 
     def delete_selected(self, tab_name, table):
+        """Smaže vybraný záznam z databáze po potvrzení uživatelem."""
         selected = table.currentRow()
         if selected < 0:
             QMessageBox.warning(self, "Chyba", "Vyberte položku!")
@@ -447,16 +485,20 @@ class AdminApp(QMainWindow):
                 self.load_data(tab_name, table)
 
 
-# --- SPUŠTĚNÍ ---
+# --- SPUŠTĚNÍ CELÉ APLIKACE ---
 if __name__ == '__main__':
+    # Vytvoření instance GUI aplikace
     app = QApplication(sys.argv)
 
-    # 1. KROK: Přihlášení
+    # 1. KROK: Zobrazení přihlašovacího dialogu
     login = LoginDialog()
+    # Aplikace čeká zde, dokud login.exec() neskončí
     if login.exec() == QDialog.DialogCode.Accepted:
-        # 2. KROK: Spuštění Adminu po úspěšném přihlášení
+        # 2. KROK: Pokud přihlášení proběhlo OK, spustíme hlavní admin okno
         window = AdminApp()
         window.show()
+        # Spuštění smyčky událostí (aplikace běží, dokud ji nezavřeme)
         sys.exit(app.exec())
     else:
+        # Pokud uživatel zavře login bez úspěchu, aplikace se ukončí
         sys.exit(0)
