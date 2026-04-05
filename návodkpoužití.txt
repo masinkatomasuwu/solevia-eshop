@@ -1,0 +1,29 @@
+Návod na spuštění e-shopu Solevia:
+
+Instalace knihoven
+Nejdříve si nainstalujte potřebné balíčky z:
+pip install -r requirements.txt
+
+Jak zapnout Web (E-shop)
+Běžte do hlavní složky projektu a spusťte soubor run.py.
+Jak zapnout Admin aplikaci (Desktop)
+Admin aplikace je v samostatném souboru admin_desktop.py. Pro její spuštění zapněte tento python soubor.
+Vyskočí na vás přihlašovací okno.
+Uživatel: tomas
+Heslo: Tomas1234
+
+Jak spustit testy
+V projektu jsou testy (unittest). Spustíte je tak, že spustíte soubor test.py, výsledky se vám ukážou v konzoli.
+
+
+Struktura je jednoduchá:
+
+run.py -> spouští web
+
+admin_desktop.py -> spouští okno pro správu produktů a uživatelů
+
+složka app -> tam je schovaný kód webu a šablony
+
+test.py -> tam jsou schované testy
+
+To by mělo být všechno, po spuštění run.py a adminu by to mělo normálně běžet.
