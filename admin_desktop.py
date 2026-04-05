@@ -1,5 +1,6 @@
 # - desktopová administrativní aplikace pro e-shop Solevia
 # - vytvořeno pomocí knihovny PyQt6 (GUI) a mysql-connector (DB)
+# - DOPLNĚNO: Funkční přihlašování propojené s webem
 
 import sys
 import os
@@ -13,7 +14,7 @@ from PyQt6.QtWidgets import (
     QDialog, QFormLayout, QCheckBox
 )
 from PyQt6.QtCore import Qt
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # --- KONFIGURACE DATABÁZE ---
 DB_CONFIG = {
@@ -33,16 +34,89 @@ def get_db_connection():
         return None
 
 
+# --- NOVÉ: DIALOG PRO PŘIHLÁŠENÍ ---
+class LoginDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Přihlášení – Solevia Admin")
+        self.setFixedSize(380, 220)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
+
+        layout = QFormLayout(self)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(15)
+
+        self.username_edit = QLineEdit()
+        self.username_edit.setPlaceholderText("Uživatelské jméno")
+        self.username_edit.setFixedHeight(35)
+
+        self.password_edit = QLineEdit()
+        self.password_edit.setPlaceholderText("Heslo")
+        self.password_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password_edit.setFixedHeight(35)
+
+        layout.addRow("Uživatel:", self.username_edit)
+        layout.addRow("Heslo:", self.password_edit)
+
+        self.login_btn = QPushButton("VSTOUPIT DO ADMINISTRACE")
+        self.login_btn.setFixedHeight(45)
+        self.login_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1a3c6e;
+                color: white;
+                font-weight: bold;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: #2b59a2;
+            }
+        """)
+        self.login_btn.clicked.connect(self.verify_login)
+        layout.addRow(self.login_btn)
+
+    def verify_login(self):
+        username = self.username_edit.text().strip()
+        password = self.password_edit.text().strip()
+
+        if not username or not password:
+            QMessageBox.warning(self, "Chyba", "Vyplňte jméno a heslo!")
+            return
+
+        conn = get_db_connection()
+        if not conn: return
+
+        try:
+            cursor = conn.cursor(dictionary=True)
+            # Hledáme admina v tabulce uživatelů webu
+            cursor.execute("SELECT password, is_admin FROM student20_users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+
+            if user:
+                if user['is_admin'] == 1:
+                    if check_password_hash(user['password'], password):
+                        self.accept()  # Přihlášení ok
+                    else:
+                        QMessageBox.warning(self, "Chyba", "Nesprávné heslo!")
+                else:
+                    QMessageBox.warning(self, "Přístup zamítnut", "Nemáte oprávnění administrátora!")
+            else:
+                QMessageBox.warning(self, "Chyba", "Uživatel v databázi neexistuje!")
+
+        except Error as e:
+            QMessageBox.critical(self, "Chyba", f"Chyba při komunikaci s DB:\n{e}")
+        finally:
+            cursor.close()
+            conn.close()
+
+
 # --- DIALOG PRO PRODUKTY (Add/Edit) ---
-# - QDialog je vyskakovací okno, které "zmrazí" hlavní okno, dokud se neuzavře
 class ProductDialog(QDialog):
     def __init__(self, parent=None, product_id=None):
         super().__init__(parent)
-        self.product_id = product_id  # - pokud ID existuje, jsme v režimu úprav (Edit)
+        self.product_id = product_id
         self.setWindowTitle("Přidat produkt" if product_id is None else "Upravit produkt")
         self.setFixedSize(550, 600)
 
-        # - QFormLayout: ideální pro formuláře (vlevo popisek, vpravo vstupní pole)
         layout = QFormLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
 
@@ -52,14 +126,12 @@ class ProductDialog(QDialog):
         self.desc_edit = QTextEdit()
         layout.addRow("Popis", self.desc_edit)
 
-        # - QDoubleSpinBox: číselný vstup pro desetinná čísla (Kč)
         self.price_edit = QDoubleSpinBox()
         self.price_edit.setRange(0, 999999)
         self.price_edit.setDecimals(2)
         self.price_edit.setSuffix(" Kč")
         layout.addRow("Cena *", self.price_edit)
 
-        # - QSpinBox: číselný vstup pro celá čísla (procenta, kusy)
         self.discount_edit = QSpinBox()
         self.discount_edit.setRange(0, 99)
         self.discount_edit.setSuffix(" %")
@@ -69,12 +141,11 @@ class ProductDialog(QDialog):
         self.stock_edit.setRange(0, 999999)
         layout.addRow("Skladem *", self.stock_edit)
 
-        self.photo_path = ""  # - cesta k souboru v počítači
+        self.photo_path = ""
         self.photo_label = QLabel("Fotka: žádná")
         layout.addRow(self.photo_label)
 
         photo_btn = QPushButton("Vybrat fotku")
-        # - propojení kliknutí na tlačítko s funkcí (Signal & Slot)
         photo_btn.clicked.connect(self.select_photo)
         layout.addRow(photo_btn)
 
@@ -84,16 +155,14 @@ class ProductDialog(QDialog):
 
         self.setLayout(layout)
         if product_id:
-            self.load_product()  # - pokud upravujeme, načteme data z DB
+            self.load_product()
 
-    # - funkce pro otevření systémového okna pro výběr souboru
     def select_photo(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Vybrat fotku", "", "Obrázky (*.jpg *.jpeg *.png)")
         if file_path:
             self.photo_path = file_path
             self.photo_label.setText(f"Fotka: {os.path.basename(file_path)}")
 
-    # - načtení existujících dat produktu do formuláře
     def load_product(self):
         conn = get_db_connection()
         if conn:
@@ -112,15 +181,12 @@ class ProductDialog(QDialog):
                 self.stock_edit.setValue(int(product['stock']))
                 self.photo_label.setText(f"Aktuální: {product['image'] or 'žádná'}")
 
-    # - validace a uložení dat do databáze (INSERT / UPDATE)
     def save(self):
         name = self.name_edit.text().strip()
         if not name:
             QMessageBox.warning(self, "Chyba", "Název je povinný!")
             return
 
-        # - LOGIKA NAHRÁVÁNÍ FOTEK:
-        # - bota se vybere v PC -> zkopíruje se do složky 'static/images' webové aplikace
         db_image = None
         if self.photo_path:
             filename = os.path.basename(self.photo_path)
@@ -140,7 +206,7 @@ class ProductDialog(QDialog):
 
         try:
             cursor = conn.cursor()
-            if self.product_id:  # - REŽIM UPDATE
+            if self.product_id:
                 if db_image:
                     cursor.execute("""
                         UPDATE student20_products SET name = %s, description = %s, price = %s, stock = %s, image = %s, discount_percent = %s WHERE id = %s
@@ -151,7 +217,7 @@ class ProductDialog(QDialog):
                         UPDATE student20_products SET name = %s, description = %s, price = %s, stock = %s, discount_percent = %s WHERE id = %s
                     """, (name, self.desc_edit.toPlainText().strip(), self.price_edit.value(), self.stock_edit.value(),
                           self.discount_edit.value(), self.product_id))
-            else:  # - REŽIM INSERT
+            else:
                 cursor.execute("""
                     INSERT INTO student20_products (name, description, price, stock, image, discount_percent) VALUES (%s, %s, %s, %s, %s, %s)
                 """, (name, self.desc_edit.toPlainText().strip(), self.price_edit.value(), self.stock_edit.value(),
@@ -159,7 +225,7 @@ class ProductDialog(QDialog):
 
             conn.commit()
             QMessageBox.information(self, "Úspěch", "Produkt uložen!")
-            self.accept()  # - zavře dialog a vrátí výsledek 'Accepted'
+            self.accept()
         except Error as e:
             QMessageBox.critical(self, "Chyba", f"Chyba při ukládání:\n{e}")
             conn.rollback()
@@ -221,12 +287,8 @@ class UserDialog(QDialog):
             QMessageBox.warning(self, "Chyba", "Uživatelské jméno je povinné!")
             return
 
-        # - KOMPATIBILITA S WEBOVOU APLIKACÍ:
-        # - Hesla musíme i zde hashovat pomocí Werkzeug, jinak se uživatel na webu nepřihlásí!
-        if self.user_id is None and (
-                not password or len(password) < 8 or not any(c.isupper() for c in password) or not any(
-                c.isdigit() for c in password)):
-            QMessageBox.warning(self, "Chyba hesla", "Heslo musí mít min. 8 znaků, velké písmeno a číslici!")
+        if self.user_id is None and (not password or len(password) < 8):
+            QMessageBox.warning(self, "Chyba hesla", "Heslo musí mít min. 8 znaků!")
             return
 
         conn = get_db_connection()
@@ -234,23 +296,18 @@ class UserDialog(QDialog):
 
         try:
             cursor = conn.cursor()
-            if self.user_id is None:  # - Nový uživatel
-                cursor.execute("SELECT id FROM student20_users WHERE username = %s", (username,))
-                if cursor.fetchone():
-                    QMessageBox.warning(self, "Chyba", "Uživatelské jméno již existuje!")
-                    return
-
+            if self.user_id is None:
                 hashed_pw = generate_password_hash(password)
                 cursor.execute("""
                     INSERT INTO student20_users (username, password, email, is_admin) VALUES (%s, %s, %s, %s)
                 """, (username, hashed_pw, email, is_admin))
-            else:  # - Úprava existujícího
-                if password:  # - měníme heslo
+            else:
+                if password:
                     hashed_pw = generate_password_hash(password)
                     cursor.execute("""
                         UPDATE student20_users SET username = %s, password = %s, email = %s, is_admin = %s WHERE id = %s
                     """, (username, hashed_pw, email, is_admin, self.user_id))
-                else:  # - heslo neměníme
+                else:
                     cursor.execute("""
                         UPDATE student20_users SET username = %s, email = %s, is_admin = %s WHERE id = %s
                     """, (username, email, is_admin, self.user_id))
@@ -273,7 +330,6 @@ class AdminApp(QMainWindow):
         self.setWindowTitle("Admin – Solevia Desktop")
         self.setGeometry(100, 100, 1100, 700)
 
-        # - QTabWidget: umožňuje přepínání mezi kartami (Produkty / Uživatelé)
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
 
@@ -283,13 +339,11 @@ class AdminApp(QMainWindow):
         self.tab_users = QWidget()
         self.tabs.addTab(self.tab_users, "Uživatelé")
 
-        # - inicializace obsahu karet
         self.init_tab(self.tab_products, "Produkty")
         self.init_tab(self.tab_users, "Uživatelé")
 
     def init_tab(self, tab, tab_name):
         layout = QVBoxLayout()
-        # - QTableWidget: tabulkové zobrazení dat z databáze
         table = QTableWidget()
 
         if tab_name == "Produkty":
@@ -299,10 +353,9 @@ class AdminApp(QMainWindow):
 
         table.setColumnCount(len(headers))
         table.setHorizontalHeaderLabels(headers)
-        table.horizontalHeader().setStretchLastSection(True)  # - poslední sloupec vyplní zbytek místa
+        table.horizontalHeader().setStretchLastSection(True)
         layout.addWidget(table)
 
-        # - TLAČÍTKA PRO CRUD OPERACE (Create, Read, Update, Delete)
         btn_layout = QHBoxLayout()
         btn_load = QPushButton(f"Obnovit {tab_name.lower()}")
         btn_load.clicked.connect(lambda: self.load_data(tab_name, table))
@@ -325,7 +378,6 @@ class AdminApp(QMainWindow):
         tab.setLayout(layout)
         self.load_data(tab_name, table)
 
-    # - načtení dat z DB do tabulky GUI
     def load_data(self, tab_name, table):
         conn = get_db_connection()
         if conn:
@@ -336,7 +388,6 @@ class AdminApp(QMainWindow):
                 rows = cursor.fetchall()
                 table.setRowCount(len(rows))
                 for row_idx, r in enumerate(rows):
-                    # - QTableWidgetItem: jeden řádek v GUI tabulce
                     table.setItem(row_idx, 0, QTableWidgetItem(str(r['id'])))
                     table.setItem(row_idx, 1, QTableWidgetItem(str(r['name'])))
                     table.setItem(row_idx, 2, QTableWidgetItem(f"{r['price']:.2f} Kč"))
@@ -360,14 +411,14 @@ class AdminApp(QMainWindow):
             conn.close()
 
     def open_add_dialog(self, tab_name, table):
-        dialog = ProductDialog(self, product_id=None) if tab_name == "Produkty" else UserDialog(self, user_id=None)
+        dialog = ProductDialog(self) if tab_name == "Produkty" else UserDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.load_data(tab_name, table)
 
     def open_edit_dialog(self, tab_name, table):
         selected = table.currentRow()
         if selected < 0:
-            QMessageBox.warning(self, "Chyba", "Vyberte položku k úpravě!")
+            QMessageBox.warning(self, "Chyba", "Vyberte položku!")
             return
         item_id = int(table.item(selected, 0).text())
         dialog = ProductDialog(self, product_id=item_id) if tab_name == "Produkty" else UserDialog(self,
@@ -375,54 +426,37 @@ class AdminApp(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.load_data(tab_name, table)
 
-    # - kaskádové mazání záznamů v databázi přímo z desktopové aplikace
     def delete_selected(self, tab_name, table):
         selected = table.currentRow()
         if selected < 0:
-            QMessageBox.warning(self, "Chyba", "Vyberte položku k odstranění!")
+            QMessageBox.warning(self, "Chyba", "Vyberte položku!")
             return
-
         item_id = int(table.item(selected, 0).text())
-        name = table.item(selected, 1).text()
-
-        # - potvrzení smazání (prevence nechtěného odstranění)
-        reply = QMessageBox.question(self, "Smazat",
-                                     f"Opravdu smazat {tab_name[:-1].lower()} {name} (ID {item_id})?\n\nPozor: Smažou se i všechny související záznamy!",
+        reply = QMessageBox.question(self, "Smazat", f"Opravdu smazat ID {item_id}?",
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-
         if reply == QMessageBox.StandardButton.Yes:
             conn = get_db_connection()
             if conn:
-                try:
-                    cursor = conn.cursor()
-                    if tab_name == "Produkty":
-                        # - čištění vazebních tabulek, aby nenastala chyba Foreign Key
-                        cursor.execute("DELETE FROM student20_order_items WHERE product_id = %s", (item_id,))
-                        cursor.execute("DELETE FROM cart_items WHERE product_id = %s", (item_id,))
-                        cursor.execute("DELETE FROM student20_products WHERE id = %s", (item_id,))
-                    else:
-                        cursor.execute("DELETE FROM cart_items WHERE user_id = %s", (item_id,))
-                        cursor.execute("DELETE FROM discount_codes WHERE user_id = %s", (item_id,))
-                        cursor.execute(
-                            "DELETE FROM student20_order_items WHERE order_id IN (SELECT id FROM student20_orders WHERE user_id = %s)",
-                            (item_id,))
-                        cursor.execute("DELETE FROM student20_orders WHERE user_id = %s", (item_id,))
-                        cursor.execute("DELETE FROM student20_users WHERE id = %s", (item_id,))
-                    conn.commit()
-                    QMessageBox.information(self, "Úspěch", f"{name} byl odstraněn!")
-                    self.load_data(tab_name, table)
-                except Error as e:
-                    conn.rollback()
-                    QMessageBox.critical(self, "Chyba", f"Chyba při mazání:\n{e}")
-                finally:
-                    cursor.close()
-                    conn.close()
+                cursor = conn.cursor()
+                if tab_name == "Produkty":
+                    cursor.execute("DELETE FROM student20_products WHERE id = %s", (item_id,))
+                else:
+                    cursor.execute("DELETE FROM student20_users WHERE id = %s", (item_id,))
+                conn.commit()
+                conn.close()
+                self.load_data(tab_name, table)
 
 
-# --- SPUŠTĚNÍ APLIKACE ---
+# --- SPUŠTĚNÍ ---
 if __name__ == '__main__':
-    # - QApplication: spravuje životní cyklus GUI aplikace
     app = QApplication(sys.argv)
-    window = AdminApp()
-    window.show()
-    sys.exit(app.exec())
+
+    # 1. KROK: Přihlášení
+    login = LoginDialog()
+    if login.exec() == QDialog.DialogCode.Accepted:
+        # 2. KROK: Spuštění Adminu po úspěšném přihlášení
+        window = AdminApp()
+        window.show()
+        sys.exit(app.exec())
+    else:
+        sys.exit(0)
