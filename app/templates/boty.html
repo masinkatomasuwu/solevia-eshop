@@ -1,10 +1,14 @@
 {# --- ŠABLONA PRO VÝPIS PRODUKTŮ S FILTROVÁNÍM --- #}
-{# Oprava: Přidán filtr '| float' pro výpočet ceny, aby se předešlo chybě Decimal * float #}
+{# Oprava: Přidán filtr '| float' pro výpočet ceny a opravena paginace (odstraněn duplicitní parametr page) #}
 {% extends "base.html" %}
 
 {% block title %}Kolekce - Solevia{% endblock %}
 
 {% block content %}
+    {# PŘÍPRAVA ARGUMENTŮ PRO PAGINACI: Vytvoříme slovník z aktuálních parametrů URL a odstraníme 'page', aby se v url_for netloukl s novým číslem strany #}
+    {% set query_args = request.args.to_dict() %}
+    {% set _ = query_args.pop('page', None) %}
+
     <main style="padding: 60px 20px; max-width: 1400px; margin: 0 auto; font-family: 'Segoe UI', sans-serif;">
 
         {# Hlavní nadpis stránky #}
@@ -13,27 +17,23 @@
         </h1>
 
         {# --- FILTRAČNÍ PANEL --- #}
-        {# Kontejner pro formulář s filtry. Metoda GET propisuje parametry do URL pro snadné sdílení výběru #}
         <div style="max-width: 1100px; margin: 0 auto 60px; background: white; padding: 35px; border-radius: 40px; border: 1px solid #f0f4f8; box-shadow: 0 20px 40px rgba(0,0,0,0.04);">
             <form method="get" action="{{ url_for('main.boty') }}">
 
                 {# PRVNÍ ŘÁDEK FILTRU: Vyhledávací pole a cenové rozpětí #}
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 25px; align-items: end; margin-bottom: 25px;">
-                    {# Vyhledávání v názvu a popisu (ošetřeno v Pythonu přes contains) #}
                     <div>
                         <label style="display: block; margin-bottom: 10px; font-weight: 700; color: #1a3c6e; font-size: 0.9em; text-transform: uppercase;">Hledat model</label>
                         <input type="text" name="q" value="{{ search_query }}" placeholder="Např. Jordan..."
                                style="width: 100%; padding: 15px; border: 1px solid #e2e8f0; border-radius: 20px; outline: none; background: #f8fbff;">
                     </div>
 
-                    {# Minimální cena (ošetřeno v Pythonu přes filter >=) #}
                     <div>
                         <label style="display: block; margin-bottom: 10px; font-weight: 700; color: #1a3c6e; font-size: 0.9em; text-transform: uppercase;">Cena od</label>
                         <input type="number" name="min_price" value="{{ min_price or '' }}" placeholder="Kč"
                                style="width: 100%; padding: 15px; border: 1px solid #e2e8f0; border-radius: 20px; outline: none; background: #f8fbff;">
                     </div>
 
-                    {# Maximální cena (ošetřeno v Pythonu přes filter <=) #}
                     <div>
                         <label style="display: block; margin-bottom: 10px; font-weight: 700; color: #1a3c6e; font-size: 0.9em; text-transform: uppercase;">Cena do</label>
                         <input type="number" name="max_price" value="{{ max_price or '' }}" placeholder="Kč"
@@ -43,29 +43,22 @@
 
                 {# DRUHÝ ŘÁDEK FILTRU: Checkboxy pro logické stavy a tlačítka #}
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; padding-top: 20px; border-top: 1px solid #f1f5f9;">
-
-                    {# Logické filtry pro rychlý výběr #}
                     <div style="display: flex; gap: 25px;">
-                        {# Filtr pro zobrazení pouze bot, které mají stock > 0 #}
                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #1a3c6e; font-weight: 700; font-size: 0.9em; text-transform: uppercase;">
                             <input type="checkbox" name="in_stock" value="1" {% if in_stock %}checked{% endif %} style="width: 20px; height: 20px; accent-color: #1a3c6e;">
                             Jen skladem
                         </label>
 
-                        {# Filtr pro zobrazení pouze bot s discount_percent > 0 #}
                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #e11d48; font-weight: 800; font-size: 0.9em; text-transform: uppercase;">
                             <input type="checkbox" name="on_sale" value="1" {% if on_sale %}checked{% endif %} style="width: 20px; height: 20px; accent-color: #e11d48;">
                             Pouze v akci %
                         </label>
                     </div>
 
-                    {# Tlačítka pro odeslání filtrů a kompletní vymazání výběru #}
                     <div style="display: flex; gap: 15px; align-items: center;">
                         <button type="submit" style="padding: 16px 35px; background: #1a3c6e; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: 800; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 10px 20px rgba(26, 60, 110, 0.2);">
                             Filtrovat
                         </button>
-
-                        {# Resetovací křížek: vrací na základní routu bez parametrů #}
                         <a href="{{ url_for('main.boty') }}" style="width: 55px; height: 55px; background: #f1f5f9; color: #64748b; text-decoration: none; border-radius: 20px; font-weight: 800; transition: 0.3s; display: flex; align-items: center; justify-content: center;" title="Zrušit filtry">
                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
                                 <path d="M11.46 8L15.64 3.82A1 1 0 0 0 14.22 2.4L10.04 6.58L5.86 2.4A1 1 0 0 0 4.44 3.82L8.62 8L4.44 12.18A1 1 0 0 0 5.86 13.6L10.04 9.42L14.22 13.6A1 1 0 0 0 15.64 12.18L11.46 8Z"/>
@@ -80,77 +73,48 @@
         {% if produkty %}
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 40px;">
                 {% for produkt in produkty %}
-                    {# Jednotlivá karta boty #}
                     <div class="product-card" style="background: white; border-radius: 40px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.05); transition: 0.3s; border: 1px solid #f1f5f9; display: flex; flex-direction: column;">
-
                         <a href="{{ url_for('main.produkt_detail', id=produkt.id) }}" style="text-decoration: none; color: inherit; flex-grow: 1;">
-
-                            {# Horní vizuální část karty #}
                             {% if produkt.image %}
                                 <div style="width: 100%; height: 280px; background: #fcfdfe; display: flex; align-items: center; justify-content: center; padding: 20px; overflow: hidden; position: relative;">
-                                    {# Dynamický odznak slevy #}
                                     {% if produkt.discount_percent > 0 %}
                                         <div style="position: absolute; top: 20px; left: 20px; background: #e11d48; color: white; padding: 8px 15px; border-radius: 15px; font-weight: 800; font-size: 0.9em; z-index: 2; box-shadow: 0 5px 15px rgba(225, 29, 72, 0.3);">
                                             -{{ produkt.discount_percent }}%
                                         </div>
                                     {% endif %}
-
-                                    {# Obrázek s hover efektem přiblížení #}
-                                    <img src="{{ url_for('static', filename=produkt.image) }}"
-                                         alt="{{ produkt.name }}"
-                                         style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.5s;"
-                                         onmouseover="this.style.transform='scale(1.1)'"
-                                         onmouseout="this.style.transform='scale(1)'">
+                                    <img src="{{ url_for('static', filename=produkt.image) }}" alt="{{ produkt.name }}" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.5s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
                                 </div>
                             {% else %}
-                                <div style="height: 280px; background: #f9fafb; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-weight: 600;">
-                                    Bez náhledu
-                                </div>
+                                <div style="height: 280px; background: #f9fafb; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-weight: 600;">Bez náhledu</div>
                             {% endif %}
 
-                            {# Textový obsah karty #}
                             <div style="padding: 30px;">
                                 <h3 style="margin: 0 0 12px; font-size: 1.5em; font-weight: 800; color: #1a3c6e;">{{ produkt.name }}</h3>
-
-                                {# Zkrácený popis (omezení na 85 znaků pro jednotný vzhled karet) #}
                                 <p style="color: #64748b; font-size: 0.95em; margin-bottom: 25px; min-height: 45px; line-height: 1.6;">
                                     {{ produkt.description[:85] }}{% if produkt.description|length > 85 %}...{% endif %}
                                 </p>
 
-                                {# Informace o ceně a stavu skladu #}
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                                     <div style="display: flex; flex-direction: column;">
-                                        {# Logika slev: Zobrazení původní ceny vs. nové vypočtené ceny #}
                                         {% if produkt.discount_percent > 0 %}
-                                            <span style="text-decoration: line-through; color: #94a3b8; font-size: 0.9em; font-weight: 600;">
-                                                {{ produkt.price | round(2) }} Kč
-                                            </span>
+                                            <span style="text-decoration: line-through; color: #94a3b8; font-size: 0.9em; font-weight: 600;">{{ produkt.price | round(2) }} Kč</span>
                                             <span style="font-size: 1.8em; font-weight: 900; color: #e11d48;">
-                                                {# OPRAVA: Přidán filtr '| float' pro kompatibilitu s Decimal typem #}
                                                 {{ (produkt.price | float * (1 - produkt.discount_percent / 100)) | round(2) }} Kč
                                             </span>
                                         {% else %}
-                                            <span style="font-size: 1.8em; font-weight: 900; color: #1a3c6e;">
-                                                {{ produkt.price | round(2) }} Kč
-                                            </span>
+                                            <span style="font-size: 1.8em; font-weight: 900; color: #1a3c6e;">{{ produkt.price | round(2) }} Kč</span>
                                         {% endif %}
                                     </div>
 
-                                    {# Stav skladu s barevným odlišením (Skladem vs. Vyprodáno) #}
                                     {% if produkt.stock > 0 %}
-                                        <span style="font-size: 0.9em; background: #dcfce7; color: #166534; padding: 8px 16px; border-radius: 15px; font-weight: 800; text-transform: uppercase;">
-                                            Skladem: {{ produkt.stock }} ks
-                                        </span>
+                                        <span style="font-size: 0.9em; background: #dcfce7; color: #166534; padding: 8px 16px; border-radius: 15px; font-weight: 800; text-transform: uppercase;">Skladem: {{ produkt.stock }} ks</span>
                                     {% else %}
-                                        <span style="font-size: 0.9em; background: #fee2e2; color: #b91c1c; padding: 8px 16px; border-radius: 15px; font-weight: 900; text-transform: uppercase;">
-                                            Vyprodáno
-                                        </span>
+                                        <span style="font-size: 0.9em; background: #fee2e2; color: #b91c1c; padding: 8px 16px; border-radius: 15px; font-weight: 900; text-transform: uppercase;">Vyprodáno</span>
                                     {% endif %}
                                 </div>
                             </div>
                         </a>
 
-                        {# Akční tlačítko pro přidání do košíku #}
                         <div style="padding: 0 30px 30px;">
                             {% if produkt.stock > 0 %}
                              <a href="{{ url_for('cart.pridat_do_kosiku', produkt_id=produkt.id) }}"
@@ -170,29 +134,26 @@
             </div>
 
             {# --- NAVIGAČNÍ LIŠTA STRÁNEK (Paginace) --- #}
+            {# Oprava: Používáme připravený query_args místo request.args pro zamezení duplicity parametru 'page' #}
             {% if pagination.has_prev or pagination.has_next %}
                 <div style="text-align: center; margin-top: 80px; display: flex; justify-content: center; align-items: center; gap: 30px;">
-                    {# Tlačítko zpět - zachovává filtry díky rozbalení request.args #}
                     {% if pagination.has_prev %}
-                        <a href="{{ url_for('main.boty', page=pagination.prev_num, **request.args) }}"
+                        <a href="{{ url_for('main.boty', page=pagination.prev_num, **query_args) }}"
                            style="padding: 14px 28px; background: white; color: #1a3c6e; border: 2px solid #1a3c6e; border-radius: 25px; text-decoration: none; font-weight: 800; transition: 0.3s;">← Předchozí</a>
                     {% endif %}
 
-                    {# Indikátor stránek #}
                     <span style="font-weight: 800; color: #94a3b8; font-size: 1.1em;">
                         Strana {{ pagination.page }} z {{ pagination.pages }}
                     </span>
 
-                    {# Tlačítko vpřed #}
                     {% if pagination.has_next %}
-                        <a href="{{ url_for('main.boty', page=pagination.next_num, **request.args) }}"
+                        <a href="{{ url_for('main.boty', page=pagination.next_num, **query_args) }}"
                            style="padding: 14px 28px; background: white; color: #1a3c6e; border: 2px solid #1a3c6e; border-radius: 25px; text-decoration: none; font-weight: 800; transition: 0.3s;">Další →</a>
                     {% endif %}
                 </div>
             {% endif %}
 
         {% else %}
-            {# --- STAV KDYŽ FILTRY NEVRÁTÍ ŽÁDNÝ VÝSLEDEK --- #}
             <div style="text-align: center; padding: 120px 20px; color: #64748b; background: white; border-radius: 50px; border: 2px dashed #e2e8f0;">
                 <h2 style="font-weight: 700; margin-bottom: 20px;">Žádné boty neodpovídají výběru.</h2>
                 <a href="{{ url_for('main.boty') }}" style="color: #3b82f6; text-decoration: none; font-weight: 800; text-transform: uppercase;">Zrušit filtry</a>
