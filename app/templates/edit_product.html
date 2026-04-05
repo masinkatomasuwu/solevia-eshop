@@ -1,0 +1,72 @@
+{# - šablona pro editaci stávajícího produktu (operace UPDATE v rámci CRUD) #}
+{% extends "base.html" %}
+
+{% block title %}Upravit produkt{% endblock %}
+
+{% block content %}
+    {# - zobrazení jména upravovaného produktu přímo v nadpisu pro lepší přehlednost #}
+    <h1 style="text-align: center; margin: 40px 0;">Upravit produkt: {{ product.name }}</h1>
+
+    {# - výpis flash zpráv (potvrzení o uložení nebo chybové hlášky z validace v Pythonu) #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div style="padding: 15px; margin: 20px auto; max-width: 600px; border-radius: 8px; background: {% if category == 'success' %}#d4edda{% else %}#f8d7da{% endif %}; color: {% if category == 'success' %}#155724{% else %}#721c24{% endif %}; text-align: center;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {# - FORMULÁŘ PRO ÚPRAVU:
+       - enctype="multipart/form-data" je nutný kvůli nahrávání nové fotky
+       - metoda POST bezpečně odesílá upravená data na server
+    #}
+    <form method="post" enctype="multipart/form-data" style="max-width: 600px; margin: 0 auto; padding: 30px; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+
+        <div style="margin-bottom: 20px;">
+            <label for="name">Název boty *</label>
+            {# - atribut 'value' vkládá aktuální název z DB přímo do políčka k úpravě #}
+            <input type="text" id="name" name="name" value="{{ product.name }}" required style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px;">
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label for="description">Popis</label>
+            {# - u textarea se hodnota dává mezi párové tagy, nikoliv do atributu value #}
+            <textarea id="description" name="description" rows="4" style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px;">{{ product.description or '' }}</textarea>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label for="price">Cena (Kč) *</label>
+            {# - step="0.01" umožňuje odeslat desetinná místa #}
+            <input type="number" id="price" name="price" step="0.01" value="{{ product.price }}" required style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px;">
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label for="stock">Skladem (ks) *</label>
+            <input type="number" id="stock" name="stock" value="{{ product.stock }}" min="0" required style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px;">
+        </div>
+
+        <div style="margin-bottom: 30px;">
+            <label for="image">Nová fotka (pokud chceš změnit)</label>
+            <input type="file" id="image" name="image" accept="image/*" style="width: 100%; padding: 8px 0;">
+
+            {# - vizuální kontrola: pokud bota už fotku má, zobrazíme její náhled #}
+            {% if product.image %}
+                <p style="margin-top: 10px;">Aktuální fotka: <br>
+                    <img src="{{ url_for('static', filename=product.image) }}" alt="{{ product.name }}" style="max-width: 200px; border-radius: 8px;">
+                </p>
+            {% endif %}
+        </div>
+
+        {# - odeslání dat do backendu (v admin.py funkce edit_product) #}
+        <button type="submit" style="width: 100%; padding: 14px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 1.1em; cursor: pointer;">
+            Uložit změny
+        </button>
+    </form>
+
+    <div style="text-align: center; margin-top: 30px;">
+        {# - odkaz zpět do hlavního admin rozhraní bez uložení změn #}
+        <a href="{{ url_for('admin.admin') }}" style="color: #2563eb; text-decoration: none;">Zpět na seznam produktů</a>
+    </div>
+{% endblock %}

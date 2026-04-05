@@ -1,0 +1,241 @@
+{# - interaktivní minihra (chytačka) pro získání slevového kódu #}
+{% extends "base.html" %}
+
+{% block title %}Sleva za hru - Solevia{% endblock %}
+
+{% block content %}
+<style>
+    /* - definice padajícího objektu (bota) */
+    .bot {
+        position: absolute;
+        width: 75px;
+        height: 75px;
+        background: url('{{ url_for('static', filename='images/bot.png') }}') no-repeat center/contain;
+        pointer-events: none;
+        z-index: 5;
+        /* - will-change informuje prohlížeč o budoucí animaci, což zvyšuje plynulost (FPS) */
+        will-change: transform;
+    }
+
+    /* - hlavní herní plocha s fixními rozměry a přechodovým pozadím */
+    #game-container {
+        position: relative;
+        width: 800px;
+        height: 700px;
+        margin: 40px auto;
+        background: linear-gradient(180deg, #1e3a8a 0%, #3b82f6 100%);
+        overflow: hidden;
+        border-radius: 40px;
+        box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+    }
+
+    /* - společný styl pro startovní a výherní obrazovku */
+    .game-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(26, 60, 110, 0.98);
+        color: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 40px;
+    }
+
+    /* - vzhled horních ukazatelů (skóre a čas) */
+    .game-ui {
+        position: absolute;
+        top: 20px;
+        font-size: 18px;
+        background: white;
+        color: #1e3a8a;
+        padding: 10px 25px;
+        border-radius: 25px;
+        font-weight: 800;
+        z-index: 20;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    /* - výrazné startovní tlačítko s animací při najetí */
+    .start-btn {
+        padding: 20px 60px;
+        background: #fbbf24;
+        color: #1a3c6e;
+        border: none;
+        border-radius: 30px;
+        font-weight: 900;
+        font-size: 1.5em;
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        transition: 0.3s;
+        box-shadow: 0 10px 25px rgba(251, 191, 36, 0.4);
+    }
+
+    .start-btn:hover {
+        transform: scale(1.1);
+        background: white;
+    }
+</style>
+
+<main style="padding: 60px 20px; text-align: center; font-family: 'Segoe UI', sans-serif;">
+    <h1 style="font-weight: 800; color: #1a3c6e; margin-bottom: 10px;">Chyť 5 bot do košíku a vyhraj slevu 10% na nákup!</h1>
+    <p style="color: #666; font-size: 1.2em; max-width: 600px; margin: 0 auto 30px;">
+        Máš na to 60 sekund. Jsi připraven?
+    </p>
+
+    {# - pojistka v Jinja2: pokud uživatel už slevu použil, hru mu nespustíme #}
+    {% if current_user.used_minigame_discount %}
+    <div style="text-align: center; padding: 60px; background: white; border-radius: 40px; max-width: 600px; margin: 40px auto; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border: 1px solid #f0f0f0;">
+        <h2 style="color: #1a3c6e; font-weight: 800;">Už máš vybráno!</h2>
+        <p style="color: #666; margin: 20px 0;">Slevu z minihry lze získat pouze jednou na jeden účet.</p>
+        <a href="{{ url_for('main.index') }}" style="display: inline-block; padding: 15px 40px; background: #1a3c6e; color: white; text-decoration: none; border-radius: 25px; font-weight: bold;">Zpět na hlavní stranu</a>
+    </div>
+    {% else %}
+
+    <div id="game-container">
+        <div id="start-screen" class="game-overlay">
+            <h2 style="font-size: 2.5em; margin-bottom: 20px;">Připraven ke startu?</h2>
+            <p style="margin-bottom: 40px; opacity: 0.8;">Hra se spustí ihned po kliknutí na tlačítko.</p>
+            <button class="start-btn" onclick="startGame()">SPUSTIT HRU</button>
+        </div>
+
+        <div id="score" class="game-ui" style="left: 25px;">Chyceno: 0 / 5</div>
+        <div id="time" class="game-ui" style="right: 25px;">Čas: 60 s</div>
+
+        <div id="basket" style="position: absolute; bottom: 25px; width: 180px; height: 100px; background: url('{{ url_for('static', filename='images/cart.png') }}') no-repeat center/contain; pointer-events: none; z-index: 10;"></div>
+
+        <div id="result" class="game-overlay" style="display: none;">
+            <h2 style="font-size: 3.5em; font-weight: 900; color: #fbbf24; margin-bottom: 10px;">VÝHRA!</h2>
+            <div style="background: rgba(255,255,255,0.1); padding: 40px; border-radius: 35px; width: 100%; max-width: 450px; border: 1px solid rgba(255,255,255,0.2);">
+                <div id="discount-code" style="font-size: 3em; font-weight: 900; letter-spacing: 5px; color: #fbbf24;">Generuji...</div>
+                <p style="margin-top: 15px; font-size: 0.9em; opacity: 0.6;">Zadej v košíku • Platnost 24h</p>
+            </div>
+            <button onclick="window.location.href='{{ url_for('main.index') }}'" style="margin-top: 50px; padding: 20px 60px; background: white; color: #1a3c6e; border: none; border-radius: 30px; font-weight: 900; cursor: pointer; text-transform: uppercase;">Zpět na obchod</button>
+        </div>
+    </div>
+
+    <script>
+        // - reference na HTML elementy pomocí ID
+        const game = document.getElementById('game-container');
+        const basket = document.getElementById('basket');
+        const scoreEl = document.getElementById('score');
+        const timeEl = document.getElementById('time');
+        const resultEl = document.getElementById('result');
+        const startScreen = document.getElementById('start-screen');
+
+        let score = 0;
+        let timeLeft = 60;
+        let gameActive = false; // - příznak, zda hra právě běží
+        let spawnerInterval;
+        let timerInterval;
+
+        // - funkce inicializující herní cykly
+        function startGame() {
+            gameActive = true;
+            startScreen.style.display = 'none';
+            game.style.cursor = 'crosshair';
+
+            // - spouštění padajících bot v intervalu 1.1s
+            spawnerInterval = setInterval(spawnBot, 1100);
+            // - odpočítávání času každou sekundu
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timeEl.textContent = `Čas: ${timeLeft} s`;
+                if (timeLeft <= 0) endGame();
+            }, 1000);
+        }
+
+        // - EVENT LISTENER pro pohyb košíku (basket) podle myši
+        game.addEventListener('mousemove', (e) => {
+            if (!gameActive) return;
+            const rect = game.getBoundingClientRect();
+            // - výpočet X pozice tak, aby střed košíku odpovídal kurzoru
+            let x = e.clientX - rect.left - (basket.offsetWidth / 2);
+            // - boundary check: košík nesmí vyjet z herního pole
+            if (x < 0) x = 0;
+            if (x > (game.offsetWidth - basket.offsetWidth)) x = game.offsetWidth - basket.offsetWidth;
+            basket.style.left = x + 'px';
+        });
+
+        // - LOGIKA TVORBY A POHYBU PADAJÍCÍCH BOT
+        function spawnBot() {
+            if (!gameActive) return;
+            const bot = document.createElement('div');
+            bot.classList.add('bot');
+            const minX = 80;
+            const maxX = game.offsetWidth - 150;
+            // - náhodná horizontální pozice startu
+            bot.style.left = Math.floor(Math.random() * (maxX - minX + 1) + minX) + 'px';
+
+            let y = -80;
+            const speed = Math.random() * 2 + 4.5; // - náhodná rychlost pádu
+            game.appendChild(bot);
+
+            // - requestAnimationFrame zajišťuje plynulý pohyb synchronizovaný s monitorem
+            function updatePos() {
+                if (!gameActive) { bot.remove(); return; }
+                y += speed;
+                bot.style.transform = `translateY(${y}px)`;
+
+                // - DETEKCE KOLIZE (AABB): kontrola překryvu obdélníků košíku a boty
+                const bRect = basket.getBoundingClientRect();
+                const botRect = bot.getBoundingClientRect();
+
+                if (botRect.bottom > bRect.top + 20 && botRect.top < bRect.bottom &&
+                    botRect.right > bRect.left && botRect.left < bRect.right) {
+                    score++;
+                    scoreEl.textContent = `Chyceno: ${score} / 5`;
+                    bot.remove();
+                    if (score >= 5) winGame(); // - dosažení cíle 5 chycených bot
+                    return;
+                }
+
+                // - pokud bota propadne pod herní pole
+                if (y > 750) {
+                    bot.remove();
+                    // - penalizace: pokud hráč botu nechytí, skóre klesá
+                    if (score > 0) { score--; scoreEl.textContent = `Chyceno: ${score} / 5`; }
+                    return;
+                }
+                requestAnimationFrame(updatePos);
+            }
+            requestAnimationFrame(updatePos);
+        }
+
+        // - VÝHRA: zastavení hry a odeslání výsledku na backend přes AJAX (fetch)
+        function winGame() {
+            gameActive = false;
+            clearInterval(spawnerInterval);
+            clearInterval(timerInterval);
+            game.style.cursor = 'default';
+            resultEl.style.display = 'flex';
+
+            // - komunikace s Pythonem pro uložení slevy do databáze
+            fetch('/save-discount', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ discount: 10 })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // - dynamické zobrazení vygenerovaného kódu
+                    document.getElementById('discount-code').textContent = data.code;
+                }
+            });
+        }
+
+        // - PROHRA: vypršení času
+        function endGame() {
+            gameActive = false;
+            clearInterval(spawnerInterval);
+            clearInterval(timerInterval);
+            alert("Čas vypršel! Zkus to znovu.");
+            window.location.reload();
+        }
+    </script>
+    {% endif %}
+</main>
+{% endblock %}

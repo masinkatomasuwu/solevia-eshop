@@ -1,0 +1,161 @@
+{# - šablona simulující bezpečnou platební bránu pro dokončení objednávky #}
+{% extends "base.html" %}
+
+{% block title %}Platební brána - Solevia{% endblock %}
+
+{% block content %}
+    <main style="padding: 60px 20px; max-width: 1200px; margin: 0 auto; font-family: 'Segoe UI', sans-serif; text-align: center;">
+
+        <h1 style="font-weight: 800; color: #1a3c6e; margin-bottom: 10px;">Bezpečná platba</h1>
+        <p style="font-size: 1.2em; color: #666; margin-bottom: 40px;">
+            Děkujeme za výběr značky <strong>Solevia</strong>.
+        </p>
+
+        <div style="max-width: 550px; margin: 0 auto; padding: 50px; background: white; border-radius: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.08); border: 1px solid #f0f0f0;">
+
+            <div style="margin-bottom: 35px; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#27ae60" class="bi bi-shield-lock-fill" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 0c-.69 0-1.843.265-2.928.56-1.11.3-2.229.655-2.887.87a1.54 1.54 0 0 0-1.044 1.262c-.596 4.477.787 7.795 2.465 9.99a11.777 11.777 0 0 0 2.517 2.453c.386.273.744.482 1.048.625.28.132.581.24.829.24s.548-.108.829-.24a7.158 7.158 0 0 0 1.048-.625 11.775 11.775 0 0 0 2.517-2.453c1.678-2.195 3.061-5.513 2.465-9.99a1.541 1.541 0 0 0-1.044-1.263 62.467 62.467 0 0 0-2.887-.87C9.843.266 8.69 0 8 0zm0 5a1.5 1.5 0 0 1 .5 2.915V10a.5.5 0 0 1-1 0V7.915A1.5 1.5 0 0 1 8 5z"/>
+                </svg>
+                <h3 style="margin: 0; font-size: 1.2em; font-weight: 700; color: #1a3c6e; text-transform: uppercase; letter-spacing: 1px;">Údaje o kartě</h3>
+            </div>
+
+            <form method="post" action="{{ url_for('cart.zaplatit') }}" id="payment-form">
+
+                <div style="margin-bottom: 25px; text-align: left;">
+                    <label for="card_name" style="display: block; margin-bottom: 8px; font-weight: 600; color: #555; font-size: 0.9em;">Jméno držitele karty</label>
+                    <input type="text" id="card_name" name="card_name" placeholder="JAN NOVÁK" required
+                           style="width: 100%; padding: 15px; border: 1px solid #eef2f8; border-radius: 20px; text-transform: uppercase; background: #fcfdfe; outline: none; font-weight: 600;">
+                </div>
+
+                <div style="margin-bottom: 25px; text-align: left;">
+                    <label for="card_number" style="display: block; margin-bottom: 8px; font-weight: 600; color: #555; font-size: 0.9em;">Číslo karty</label>
+                    <input type="text" id="card_number" name="card_number" placeholder="**** **** **** ****"
+                           required maxlength="19" style="width: 100%; padding: 15px; border: 1px solid #eef2f8; border-radius: 20px; background: #fcfdfe; outline: none; font-weight: 600; letter-spacing: 2px; transition: border-color 0.3s;">
+                </div>
+
+                <div style="display: flex; gap: 20px; margin-bottom: 40px; text-align: left;">
+                    <div style="flex: 1;">
+                        <label for="expiry" style="display: block; margin-bottom: 8px; font-weight: 600; color: #555; font-size: 0.9em;">Platnost (MM/RR)</label>
+                        <input type="text" id="expiry" name="expiry" placeholder="12/28" required maxlength="5"
+                               style="width: 100%; padding: 15px; border: 1px solid #eef2f8; border-radius: 20px; background: #fcfdfe; outline: none; font-weight: 600; text-align: center;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label for="cvc" style="display: block; margin-bottom: 8px; font-weight: 600; color: #555; font-size: 0.9em;">CVC</label>
+                        <input type="text" id="cvc" name="cvc" placeholder="***" required maxlength="3"
+                               style="width: 100%; padding: 15px; border: 1px solid #eef2f8; border-radius: 20px; background: #fcfdfe; outline: none; font-weight: 600; text-align: center;">
+                    </div>
+                </div>
+
+                {# --- OPRAVENÁ REKAPITULACE CENY --- #}
+                <div style="border-top: 2px solid #f8fbff; padding-top: 25px; margin-bottom: 25px; text-align: left;">
+                    {# - řádek pro dopravu #}
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span style="color: #64748b; font-weight: 600;">Doprava ({{ session['order_shipping_info']['metoda_dopravy'] }}):</span>
+                        <span style="color: #1a3c6e; font-weight: 700;">
+                            {% if session['order_shipping_info']['metoda_dopravy'] == 'PPL' %}99.00{% else %}69.00{% endif %} Kč
+                        </span>
+                    </div>
+
+                    {# - hlavní řádek celkové ceny #}
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 700; color: #64748b; font-size: 1.1em;">Celkem k úhradě:</span>
+                        <span style="font-weight: 900; color: #1a3c6e; font-size: 2.2em; letter-spacing: -1px;">
+                            {{ celkova_cena | round(2) }} Kč
+                        </span>
+                    </div>
+                </div>
+
+                {# - TLAČÍKO ZAPLATIT - #}
+                <button type="submit" id="submit-btn" style="width: 100%; padding: 22px; background: #22c55e; color: white; border: none; border-radius: 25px; font-weight: 800; font-size: 1.2em; text-transform: uppercase; letter-spacing: 2px; cursor: pointer; transition: 0.3s; box-shadow: 0 10px 25px rgba(34, 197, 94, 0.3);"
+                        onmouseover="this.style.background='#16a34a'; this.style.transform='translateY(-2px)'"
+                        onmouseout="this.style.background='#22c55e'; this.style.transform='translateY(0)'">
+                    ZAPLATIT {{ celkova_cena | round(2) }} Kč
+                </button>
+            </form>
+
+            <div style="margin-top: 35px; display: flex; justify-content: center; gap: 15px; opacity: 0.5;">
+                <span style="font-size: 0.8em; font-weight: bold; border: 1px solid #000; padding: 2px 6px; border-radius: 4px;">VISA</span>
+                <span style="font-size: 0.8em; font-weight: bold; border: 1px solid #000; padding: 2px 6px; border-radius: 4px;">Mastercard</span>
+            </div>
+
+            <p style="margin-top: 30px; color: #999; font-size: 0.85em; font-style: italic;">
+                Testovací režim – zabezpečeno SSL šifrováním.
+            </p>
+        </div>
+
+        <div style="margin-top: 40px;">
+            <a href="{{ url_for('cart.kosik') }}" style="color: #666; text-decoration: none; font-size: 0.95em; font-weight: 600;">← Zpět do košíku</a>
+        </div>
+    </main>
+
+<script>
+    // - LUHNUŮV ALGORITMUS (Validace čísla karty):
+    // - Matematická metoda pro ověření platnosti čísla kreditní karty bez nutnosti kontaktovat banku.
+    function validateLuhn(number) {
+        let sum = 0;
+        let shouldDouble = false;
+        // - Procházíme číslice odzadu
+        for (let i = number.length - 1; i >= 0; i--) {
+            let digit = parseInt(number.charAt(i));
+            if (shouldDouble) {
+                digit *= 2;
+                if (digit > 9) digit -= 9;
+            }
+            sum += digit;
+            shouldDouble = !shouldDouble;
+        }
+        // - Pokud je zbytek po dělení 10 nula, číslo je platné
+        return (sum % 10) === 0;
+    }
+
+    // - Maskování karty
+    const cardInput = document.getElementById('card_number');
+    const submitBtn = document.getElementById('submit-btn');
+
+    cardInput.addEventListener('input', function (e) {
+        let value = e.target.value.replace(/\D/g, '');
+        let formattedValue = value.match(/.{1,4}/g)?.join(' ') || '';
+        e.target.value = formattedValue;
+
+        // - Kontrola Luhnova algoritmu v reálném čase po zadání 16 číslic
+        const rawValue = value;
+        if (rawValue.length === 16) {
+            if (!validateLuhn(rawValue)) {
+                cardInput.style.borderColor = '#e11d48'; // - červená při chybě
+            } else {
+                cardInput.style.borderColor = '#22c55e'; // - zelená při úspěchu
+            }
+        } else {
+            cardInput.style.borderColor = '#eef2f8'; // - výchozí barva
+        }
+    });
+
+    // - Maskování expirace
+    const expiryInput = document.getElementById('expiry');
+    expiryInput.addEventListener('input', function (e) {
+        let value = e.target.value.replace(/\D/g, '');
+        if (value.length > 2) {
+            e.target.value = value.substring(0, 2) + '/' + value.substring(2, 4);
+        } else {
+            e.target.value = value;
+        }
+    });
+
+    // - Validace CVC
+    const cvcInput = document.getElementById('cvc');
+    cvcInput.addEventListener('input', function (e) {
+        e.target.value = e.target.value.replace(/\D/g, '');
+    });
+
+    // - Finální kontrola před odesláním formuláře
+    document.getElementById('payment-form').addEventListener('submit', function(e) {
+        const rawCard = cardInput.value.replace(/\s+/g, '');
+        if (!validateLuhn(rawCard)) {
+            e.preventDefault(); // - zastaví odeslání pokud je karta neplatná
+            alert("Zadané číslo karty není platné. Zkontrolujte prosím překlepy.");
+            cardInput.focus();
+        }
+    });
+</script>
+{% endblock %}

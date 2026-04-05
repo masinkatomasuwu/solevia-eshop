@@ -1,0 +1,148 @@
+{# - hlavní úvodní stránka e-shopu se širokoúhlým animovaným sliderem (Hero sekce) #}
+{% extends "base.html" %}
+
+{% block title %}Solevia - Domov lehkého kroku{% endblock %}
+
+{% block content %}
+<style>
+    /* - CSS reset pro index: slider musí sedět přesně na okraje prohlížeče (fullscreen) */
+    body, html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden; /* - zakáže scrollování, aby úvodní strana působila jako statický plakát */
+    }
+
+    /* - kontejner přes celou obrazovku, z-index 1 zajišťuje, že je pod navigací (pokud má nav vyšší index) */
+    .fullscreen-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 1;
+    }
+
+    /* - vnitřní pás slideru: má šířku 400 %, protože obsahuje 4 slidy vedle sebe */
+    .slider-inner {
+        display: flex;
+        width: 400%;
+        height: 100%;
+        /* - slideAnim: název animace, 20s délka cyklu, běží nekonečně (infinite) */
+        animation: slideAnim 20s infinite ease-in-out;
+    }
+
+    /* - jeden konkrétní slide: zabírá 25 % z celkové šířky 400 % (tedy přesně 100 % šířky okna) */
+    .slide {
+        width: 25%;
+        height: 100%;
+        background-size: cover; /* - obrázek se přizpůsobí ploše bez deformace */
+        background-position: center;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* - černý poloprůhledný filtr přes fotku, aby byl bílý text lépe čitelný */
+    .overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+    }
+
+    /* - box s textem a tlačítkem: z-index 10 ho vytáhne nad overlay */
+    .content-box {
+        position: relative;
+        z-index: 10;
+        text-align: center;
+        color: white;
+        padding: 40px;
+    }
+
+    /* - Call to Action (CTA) tlačítko: výrazný prvek, který vede uživatele do obchodu */
+    .cta-button {
+        display: inline-block;
+        margin-top: 30px;
+        padding: 18px 60px;
+        background: white;
+        color: #1a3c6e;
+        text-decoration: none;
+        border-radius: 50px;
+        font-weight: bold;
+        font-size: 1.2em;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        transition: all 0.3s ease;
+    }
+
+    .cta-button:hover {
+        transform: scale(1.05); /* - efekt mírného zvětšení při najetí myší */
+        background: #f0f0f0;
+    }
+
+    /* - KLÍČOVÉ SNÍMKY ANIMACE (Keyframes):
+       - každých 25 % času se posune pás o 25 % doleva (zobrazí se další slide)
+       - pauzy mezi procenty (např. 20 % až 25 %) tvoří efekt, kdy slide chvíli stojí a pak se rychle pohne
+    */
+    @keyframes slideAnim {
+        0%   { transform: translateX(0%); }
+        20%  { transform: translateX(0%); }
+        25%  { transform: translateX(-25%); }
+        45%  { transform: translateX(-25%); }
+        50%  { transform: translateX(-50%); }
+        70%  { transform: translateX(-50%); }
+        75%  { transform: translateX(-75%); }
+        95%  { transform: translateX(-75%); }
+        100% { transform: translateX(0%); }
+    }
+</style>
+
+<div class="fullscreen-container">
+    <div class="slider-inner">
+
+        {# - SLIDE 1: Úvodní branding #}
+        <div class="slide" style="background-image: url('{{ url_for('static', filename='images/hero_detail.avif') }}');">
+            <div class="overlay"></div>
+            <div class="content-box">
+                <h1 style="font-size: 5em; font-weight: 800; margin: 0; letter-spacing: -2px;">Solevia</h1>
+                <p style="font-size: 1.5em; opacity: 0.9;">Styl, který definuje váš každý krok.</p>
+                <a href="{{ url_for('main.boty') }}" class="cta-button">Prozkoumat</a>
+            </div>
+        </div>
+
+        {# - SLIDE 2: Zaměření na kvalitu #}
+        <div class="slide" style="background-image: url('{{ url_for('static', filename='images/hero_akce.avif') }}');">
+            <div class="overlay"></div>
+            <div class="content-box">
+                <h1 style="font-size: 4em; font-weight: 800; margin: 0;">Precizní detaily</h1>
+                <p style="font-size: 1.5em; opacity: 0.9;">Kvalita, kterou ucítíte při prvním obutí.</p>
+                <a href="{{ url_for('main.boty') }}" class="cta-button">Prozkoumat</a>
+            </div>
+        </div>
+
+        {# - SLIDE 3: Kategorie sport #}
+        <div class="slide" style="background-image: url('{{ url_for('static', filename='images/hero_sport.avif') }}');">
+            <div class="overlay"></div>
+            <div class="content-box">
+                <h1 style="font-size: 4em; font-weight: 800; margin: 0;">Výkon v pohybu</h1>
+                <p style="font-size: 1.5em; opacity: 0.9;">Boty navržené pro vaše nejlepší výsledky.</p>
+                {# - odkaz přímo na filtrované výsledky (hledání slova 'sport') #}
+                <a href="{{ url_for('main.boty', q='sport') }}" class="cta-button">Prozkoumat</a>
+            </div>
+        </div>
+
+        {# - SLIDE 4: Promo nové kolekce #}
+        <div class="slide" style="background-image: url('{{ url_for('static', filename='images/hero_tenisky.avif') }}');">
+            <div class="overlay"></div>
+            <div class="content-box">
+                <h1 style="font-size: 4em; font-weight: 800; margin: 0;">Nová kolekce 2026</h1>
+                <p style="font-size: 1.5em; opacity: 0.9;">Buďte o krok napřed.</p>
+                <a href="{{ url_for('main.boty') }}" class="cta-button">Prozkoumat</a>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

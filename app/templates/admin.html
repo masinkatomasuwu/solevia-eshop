@@ -1,0 +1,145 @@
+{# - rozšiřuje základní kostru webu (header, footer, styly) #}
+{% extends "base.html" %}
+
+{# - nastavení titulku stránky v prohlížeči #}
+{% block title %}Admin – Správa bot{% endblock %}
+
+{% block content %}
+    <main class="container my-5">
+        <h1 class="text-center mb-5">Admin – Správa produktů</h1>
+
+        {# - ZOBRAZENÍ ZPRÁV (Flash): zpětná vazba pro admina o úspěchu/chybě operace #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-4">
+                    {% for category, message in messages %}
+                        {# - bootstrap alert: barva se mění dynamicky podle kategorie z Pythonu #}
+                        <div class="alert alert-{{ 'success' if category == 'success' else 'danger' if category == 'danger' else 'warning' if category == 'warning' else 'info' }} alert-dismissible fade show" role="alert">
+                            <strong>
+                                {% if category == 'success' %}Úspěch{% elif category == 'danger' %}Chyba{% elif category == 'warning' %}Varování{% else %}Info{% endif %}
+                            </strong> — {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Zavřít"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="row g-3 mb-5">
+            <div class="col-md-8">
+                {# - metoda GET: parametry hledání se propisují do URL (např. ?q=nike) #}
+                <form method="get" class="d-flex gap-2">
+                    <input type="text" name="q" value="{{ search_query }}" placeholder="Hledej podle názvu..." class="form-control">
+                    <button type="submit" class="btn btn-primary">Hledat</button>
+                </form>
+            </div>
+            <div class="col-md-4 text-md-end">
+                {# - JS: po kliknutí změní 'display: none' na 'block' a ukáže schovaný formulář #}
+                <button class="btn btn-success" onclick="document.getElementById('add-form').style.display='block';">
+                    + Přidat novou botu
+                </button>
+            </div>
+        </div>
+
+        {# - enctype="multipart/form-data": nutné pro nahrávání souborů/obrázků #}
+        <div id="add-form" class="card mb-5" style="display: none;">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">Přidat novou botu</h2>
+
+                <form method="post" enctype="multipart/form-data">
+                    {# - skrytý identifikátor pro backend, aby poznal akci 'add' #}
+                    <input type="hidden" name="add" value="true">
+
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Název boty *</label>
+                        <input type="text" id="name" name="name" required class="form-control">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Popis</label>
+                        <textarea id="description" name="description" rows="5" class="form-control"></textarea>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            {# - typ number + step 0.01: dovoluje desetinná čísla u ceny #}
+                            <label for="price" class="form-label">Cena (Kč) *</label>
+                            <input type="number" id="price" name="price" step="0.01" min="0" required class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="stock" class="form-label">Skladem (ks) *</label>
+                            <input type="number" id="stock" name="stock" min="0" required class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="image" class="form-label">Fotka boty</label>
+                        {# - omezení výběru souborů pouze na obrázky #}
+                        <input type="file" id="image" name="image" accept="image/*" class="form-control">
+                    </div>
+
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-success btn-lg me-2">Přidat produkt</button>
+                        <button type="button" class="btn btn-danger btn-lg" onclick="document.getElementById('add-form').style.display='none';">
+                            Zrušit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <h2 class="text-center mb-4">Seznam produktů</h2>
+
+        {% if produkty %}
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                {# - Jinja2 cyklus: renderuje kartu pro každý objekt v seznamu 'produkty' #}
+                {% for produkt in produkty %}
+                    <div class="col">
+                        <div class="card h-100 shadow-sm">
+                            {# - cesta k fotce: url_for míří do složky static #}
+                            {% if produkt.image %}
+                                <img src="{{ url_for('static', filename=produkt.image) }}" alt="{{ produkt.name }}" class="card-img-top" style="height: 240px; object-fit: cover;">
+                            {% else %}
+                                <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 240px;">
+                                    Bez fotky
+                                </div>
+                            {% endif %}
+
+                            <div class="card-body">
+                                <h5 class="card-title">{{ produkt.name }}</h5>
+                                <p class="card-text text-muted" style="min-height: 60px;">{{ produkt.description or 'Bez popisu' }}</p>
+
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <span class="fs-4 fw-bold text-danger">{{ produkt.price }} Kč</span>
+                                    <span class="badge bg-success">Skladem: {{ produkt.stock }} ks</span>
+                                </div>
+
+                                <div class="d-grid gap-2">
+                                    {# - ÚPRAVA: odkaz na route s ID konkrétního produktu #}
+                                    <a href="{{ url_for('admin.edit_product', id=produkt.id) }}" class="btn btn-warning btn-sm">
+                                        Upravit
+                                    </a>
+
+                                    {# - MAZÁNÍ (Delete): odesílá se jako POST formulář se skrytým ID produktu #}
+                                    <form method="post">
+                                        <input type="hidden" name="delete" value="true">
+                                        <input type="hidden" name="product_id" value="{{ produkt.id }}">
+                                        {# - JS confirm: vyskočí potvrzení před odesláním do backendu #}
+                                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Opravdu smazat {{ produkt.name }}?');">
+                                            Smazat
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            {# - zobrazení, pokud je seznam prázdný nebo filtr nic nenašel #}
+            <p class="text-center text-muted fs-5 py-5">
+                Zatím žádné produkty v databázi.
+            </p>
+        {% endif %}
+    </main>
+{% endblock %}

@@ -1,0 +1,214 @@
+{# - komplexní šablona uživatelského profilu: správa účtu, historie objednávek a ořez profilové fotky #}
+{% extends "base.html" %}
+
+{% block title %}Můj profil - Solevia{% endblock %}
+
+{% block content %}
+
+<style>
+    /* - CSS CUSTOMIZACE PRO CROPPER.JS:
+       - přetížení výchozích stylů knihovny, aby ořezová oblast vypadala jako kruh (pro profilovku) */
+    .cropper-view-box,
+    .cropper-face {
+        border-radius: 50%;
+    }
+
+    /* - vizuální vyčištění: skrytí pomocných čar a bodů ořezu, aby nerušily uživatele */
+    .cropper-line, .cropper-point {
+        display: none !important;
+    }
+
+    .cropper-point.point-se {
+        display: block !important;
+        width: 10px;
+        height: 10px;
+        opacity: 0.75;
+    }
+</style>
+
+{# - import externí knihovny Cropper.js z CDN pro manipulaci s obrázky na straně klienta #}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+
+<main style="padding: 60px 20px; max-width: 1000px; margin: 0 auto; font-family: 'Segoe UI', sans-serif;">
+
+    {# --- SEKCE NASTAVENÍ ÚČTU (Update & Delete) --- #}
+    <div style="background: white; padding: 40px; border-radius: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.03); border: 1px solid #f0f0f0; margin-bottom: 50px;">
+        <h3 style="font-size: 1.5em; font-weight: 700; color: #1a3c6e; margin-bottom: 30px;">Nastavení účtu</h3>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px;">
+            {# - FORMULÁŘ PRO AKTUALIZACI: odesílá se na auth.update_profile #}
+            <form action="{{ url_for('auth.update_profile') }}" method="POST" style="display: flex; flex-direction: column; gap: 15px;">
+                <h4 style="font-size: 1em; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 800;">Změna údajů</h4>
+                <input type="email" name="new_email" placeholder="Nový email" value="{{ user.email or '' }}" style="width: 100%; padding: 12px 20px; border: 1px solid #e2e8f0; border-radius: 15px; outline: none; font-weight: 600;">
+                <input type="password" name="new_password" placeholder="Nové heslo (nechte prázdné pro beze změny)" style="width: 100%; padding: 12px 20px; border: 1px solid #e2e8f0; border-radius: 15px; outline: none; font-weight: 600;">
+                <button type="submit" style="background: #1a3c6e; color: white; border: none; padding: 12px; border-radius: 15px; font-weight: 700; cursor: pointer; transition: 0.3s;">Uložit změny</button>
+            </form>
+
+            {# - NEBEZPEČNÁ ZÓNA: smazání účtu s JS potvrzením (preventivní ochrana před nechtěným smazáním) #}
+            <div style="padding: 25px; border: 2px dashed #fee2e2; border-radius: 30px; background: #fffafb;">
+                <h4 style="font-size: 1em; color: #e11d48; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; margin-bottom: 10px;">Nebezpečná zóna</h4>
+                <form action="{{ url_for('auth.delete_account') }}" method="POST" onsubmit="return confirm('Opravdu chcete nenávratně smazat svůj účet? Tato akce nelze vzít zpět.');">
+                    <button type="submit" style="width: 100%; background: transparent; color: #e11d48; border: 2px solid #e11d48; padding: 10px; border-radius: 15px; font-weight: 800; cursor: pointer; transition: 0.3s;">Smazat účet</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {# --- INFO KARTY (Profilovka, Detaily, Pozdrav) --- #}
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-bottom: 50px;">
+
+        {# - KARTA PROFILOVKY: kliknutím na label se vyvolá skrytý file input #}
+        <div style="background: white; padding: 35px; border-radius: 35px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f0f0f0; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <div style="position: relative; margin-bottom: 20px;">
+                <img src="{{ url_for('static', filename='profile_pics/' + current_user.profile_pic) }}"
+                     id="current-avatar" alt="Profilovka"
+                     style="width: 130px; height: 130px; border-radius: 50%; object-fit: cover; border: 4px solid #f8fafc;">
+            </div>
+
+            <form id="avatar-form" action="{{ url_for('auth.upload_avatar') }}" method="POST" enctype="multipart/form-data" style="width: 100%;">
+                <label for="avatar-input" style="display: block; font-size: 0.85em; color: #3b82f6; font-weight: 700; cursor: pointer; text-transform: uppercase;">Změnit fotografii</label>
+                <input type="file" id="avatar-input" name="avatar" accept="image/*" style="display: none;">
+                {# - SKRYTÝ INPUT: sem JS uloží oříznutý obrázek jako Base64 řetězec před odesláním do Pythonu #}
+                <input type="hidden" name="cropped_image" id="cropped_image_data">
+            </form>
+        </div>
+
+        {# - OSOBNÍ ÚDAJE: výpis dat z objektu 'user' (včetně formátování data členství) #}
+        <div style="background: white; padding: 35px; border-radius: 35px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f0f0f0; position: relative; overflow: hidden;">
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: #1a3c6e;"></div>
+            <h3 style="font-size: 1.3em; font-weight: 700; color: #1a3c6e; margin-bottom: 25px; text-transform: uppercase;">Osobní údaje</h3>
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                <div>
+                    <span style="display: block; font-size: 0.8em; color: #999; text-transform: uppercase; font-weight: 700;">Uživatelské jméno</span>
+                    <span style="font-size: 1.1em; font-weight: 600; color: #333;">{{ user.username }}</span>
+                </div>
+                <div>
+                    <span style="display: block; font-size: 0.8em; color: #999; text-transform: uppercase; font-weight: 700;">Email</span>
+                    <span style="font-size: 1.1em; font-weight: 600; color: #333;">{{ user.email or 'není uveden' }}</span>
+                </div>
+                {% if user.is_admin %}
+                <div style="margin-top: 10px;">
+                    <span style="background: #fff9db; color: #f08c00; padding: 5px 15px; border-radius: 10px; font-size: 0.85em; font-weight: 800;">ADMINISTRÁTOR</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div style="background: linear-gradient(135deg, #1a3c6e 0%, #3b82f6 100%); padding: 35px; border-radius: 35px; color: white; display: flex; flex-direction: column; justify-content: center;">
+            <h2 style="font-size: 2em; font-weight: 800; margin-bottom: 10px;">Ahoj, {{ user.username }}!</h2>
+            <p style="opacity: 0.9;">Vítej zpět ve svém světě Solevia.</p>
+        </div>
+    </div>
+
+    {# --- TABULKA HISTORIE OBJEDNÁVEK (Read) --- #}
+    <div style="background: white; padding: 40px; border-radius: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.03); border: 1px solid #f0f0f0;">
+        <h3 style="font-size: 1.5em; font-weight: 700; color: #1a3c6e; margin-bottom: 30px;">Historie objednávek</h3>
+        {% if orders %}
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: separate; border-spacing: 0 15px;">
+                    <thead>
+                        <tr style="text-align: left; color: #999; font-size: 0.85em; text-transform: uppercase;">
+                            <th style="padding: 0 20px;">Číslo</th>
+                            <th style="padding: 0 20px;">Datum</th>
+                            <th style="padding: 0 20px;">Cena</th>
+                            <th style="padding: 0 20px;">Stav</th>
+                            <th style="padding: 0 20px; text-align: right;">Detail</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr style="background: #fcfdfe;">
+                            <td style="padding: 20px; font-weight: 700; color: #1a3c6e;">#{{ order.id }}</td>
+                            <td style="padding: 20px;">{{ order.created_at.strftime('%d.%m.%Y') }}</td>
+                            <td style="padding: 20px; font-weight: 800;">{{ order.total_price | round(2) }} Kč</td>
+                            <td style="padding: 20px;">
+                                <span style="background: #dcfce7; color: #166534; padding: 6px 15px; border-radius: 12px; font-size: 0.85em; font-weight: 700;">Zaplaceno</span>
+                            </td>
+                            <td style="padding: 20px; text-align: right;">
+                                <a href="{{ url_for('auth.order_detail', order_id=order.id) }}" style="color: #3b82f6; text-decoration: none; font-weight: 700; border: 1px solid #dbeafe; padding: 8px 20px; border-radius: 12px;">Detail</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="text-align: center; color: #999;">Zatím jste u nás neudělali žádnou objednávku.</p>
+        {% endif %}
+    </div>
+
+</main>
+
+{# --- MODÁLNÍ OKNO PRO OŘEZ OBRÁZKU --- #}
+<div id="cropper-modal" style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:10000; align-items:center; justify-content:center; backdrop-filter: blur(5px);">
+    <div style="background:white; padding:30px; border-radius:30px; max-width:500px; width:100%;">
+        <h4 style="margin-bottom: 20px; color: #1a3c6e; font-weight: 700; text-align: center;">Upravit profilovou fotku</h4>
+        <div style="max-height: 400px; overflow: hidden; border-radius: 15px; background: #f8fafc;">
+            {# - placeholder pro vybraný obrázek z počítače uživatele #}
+            <img id="image-to-crop" style="max-width: 100%; display: block;">
+        </div>
+        <div style="display: flex; gap: 15px; margin-top: 25px;">
+            <button type="button" id="crop-save-btn" style="flex:1; background:#1a3c6e; color:white; border:none; padding:12px; border-radius:15px; font-weight:700; cursor:pointer;">Uložit</button>
+            <button type="button" onclick="closeCropper()" style="flex:1; background:#f1f5f9; color:#64748b; border:none; padding:12px; border-radius:15px; font-weight:700; cursor:pointer;">Zrušit</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let cropper; // - instance Cropper.js
+const avatarInput = document.getElementById('avatar-input');
+const imageToCrop = document.getElementById('image-to-crop');
+const cropperModal = document.getElementById('cropper-modal');
+const croppedImageHidden = document.getElementById('cropped_image_data');
+const avatarForm = document.getElementById('avatar-form');
+
+function closeCropper() {
+    cropperModal.style.display = 'none';
+    avatarInput.value = '';
+    if (cropper) cropper.destroy();
+}
+
+// - EVENT: výběr souboru (File API)
+avatarInput.addEventListener('change', function(e) {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            imageToCrop.src = event.target.result; // - načtení lokálního souboru do modálu
+            cropperModal.style.display = 'flex';
+            if (cropper) cropper.destroy();
+
+            // - INICIALIZACE OŘEZU:
+            cropper = new Cropper(imageToCrop, {
+                aspectRatio: 1, // - profilovka musí být čtverec
+                viewMode: 1,
+                autoCropArea: 0.8,
+                guides: true,
+                center: true,
+            });
+        };
+        reader.readAsDataURL(files[0]);
+    }
+});
+
+// - EVENT: finální ořez a odeslání (AJAX-like submit)
+document.getElementById('crop-save-btn').addEventListener('click', function() {
+    if (!cropper) return;
+
+    // - vygenerování oříznutého plátna (Canvas) v pevné velikosti 400x400
+    const canvas = cropper.getCroppedCanvas({
+        width: 400,
+        height: 400
+    });
+
+    // - převod binárních dat z Canvasu do formátu Base64 (řetězec začínající data:image/jpeg;base64,...)
+    const base64Image = canvas.toDataURL('image/jpeg', 0.9);
+
+    // - vložení Base64 řetězce do skrytého pole formuláře a odeslání na server (auth.upload_avatar)
+    croppedImageHidden.value = base64Image;
+    avatarForm.submit();
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,105 @@
+{# - šablona pro zobrazení podrobného přehledu jedné konkrétní objednávky #}
+{% extends "base.html" %}
+
+{# - dynamický titulek stránky obsahující ID objednávky #}
+{% block title %}Objednávka #{{ order.id }} - Solevia{% endblock %}
+
+{% block content %}
+<main style="padding: 60px 20px; max-width: 1000px; margin: 0 auto; font-family: 'Segoe UI', sans-serif;">
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+        {# - návrat na profil uživatele #}
+        <a href="{{ url_for('auth.profile') }}" style="color: #64748b; text-decoration: none; font-weight: 700; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg>
+            Zpět na profil
+        </a>
+        <span style="background: #f1f5f9; color: #1a3c6e; padding: 8px 20px; border-radius: 15px; font-weight: 800; font-size: 0.85em;">
+            STATUS: {{ order.status | upper if order.status else 'ZAPLACENO' }}
+        </span>
+    </div>
+
+    {# --- DORUČOVACÍ ADRESA --- #}
+    <div style="background: white; border-radius: 35px; padding: 35px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f0f0f0; margin-bottom: 30px;">
+        <h4 style="color: #1a3c6e; font-weight: 800; margin-bottom: 15px; text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px;">Doručovací adresa</h4>
+        <p style="margin: 0; font-weight: 600; color: #334155; line-height: 1.6;">
+            <span style="font-size: 1.2em; color: #1a3c6e;">{{ order.jmeno }} {{ order.prijmeni }}</span><br>
+            {{ order.ulice }}<br>
+            {{ order.psc }} {{ order.mesto }}<br>
+            <span style="color: #64748b;">Tel: {{ order.telefon }}</span>
+        </p>
+    </div>
+
+    <div style="background: white; border-radius: 35px; box-shadow: 0 15px 40px rgba(0,0,0,0.05); border: 1px solid #f0f0f0; overflow: hidden; margin-bottom: 40px;">
+
+        <div style="padding: 40px; border-bottom: 2px solid #f8fbff; background: #fcfdfe;">
+            <h1 style="margin: 0 0 10px; font-weight: 800; color: #1a3c6e; font-size: 2em;">Objednávka #{{ order.id }}</h1>
+            <p style="color: #64748b; margin: 0; font-weight: 600;">
+                Vytvořeno: {{ order.created_at.strftime('%d. %m. %Y %H:%M') }}
+            </p>
+        </div>
+
+        <div style="padding: 40px;">
+            <h3 style="font-size: 1.1em; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 25px; font-weight: 800;">Zakoupené modely</h3>
+
+            <div style="display: grid; gap: 20px;">
+                {% for item in items %}
+                <div style="display: flex; align-items: center; padding: 20px; background: #f8fbff; border-radius: 25px; border: 1px solid #eef2f8;">
+
+                    <div style="width: 100px; height: 80px; background: white; border-radius: 15px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-right: 25px; flex-shrink: 0; padding: 5px;">
+                        {% if item.product.image %}
+                            <img src="{{ url_for('static', filename=item.product.image) }}"
+                                 alt="{{ item.product.name }}"
+                                 style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                        {% else %}
+                            <div style="font-size: 0.7em; color: #cbd5e1;">Není</div>
+                        {% endif %}
+                    </div>
+
+                    <div style="flex: 1;">
+                        <h4 style="margin: 0; color: #1a3c6e; font-weight: 800; font-size: 1.1em;">{{ item.product.name }}</h4>
+                        <p style="margin: 5px 0 0; color: #64748b; font-size: 0.9em; font-weight: 600;">
+                            {{ item.quantity }}x {{ item.price | round(2) }} Kč
+                        </p>
+                    </div>
+
+                    <div style="text-align: right; font-weight: 800; color: #1a3c6e; font-size: 1.1em;">
+                        {{ (item.quantity * item.price) | round(2) }} Kč
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {# --- SEKCE DOPRAVY (Nové) --- #}
+        <div style="padding: 20px 40px; border-top: 1px solid #f1f5f9; background: #fcfdfe; display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 0.85em; letter-spacing: 1px;">
+                Doprava: {{ order.shipping_name }}
+            </span>
+            <span style="font-weight: 800; color: #1a3c6e; font-size: 1.1em;">
+                {{ order.shipping_price | round(2) }} Kč
+            </span>
+        </div>
+
+        {# --- CELKOVÁ SUMA --- #}
+        <div style="padding: 40px; background: #1a3c6e; color: white; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 1.1em; font-weight: 700; opacity: 0.8;">Celková částka (včetně dopravy)</span>
+            <span style="font-size: 2.2em; font-weight: 900;">{{ order.total_price | round(2) }} Kč</span>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="{{ url_for('cart.stahnout_fakturu', order_id=order.id) }}"
+           target="_blank"
+           style="display: inline-flex; align-items: center; gap: 10px; padding: 15px 35px; background: white; color: #1a3c6e; border: 2px solid #1a3c6e; border-radius: 20px; text-decoration: none; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; transition: 0.3s;"
+           onmouseover="this.style.background='#1a3c6e'; this.style.color='white'"
+           onmouseout="this.style.background='white'; this.style.color='#1a3c6e'">
+
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+            </svg>
+            Stáhnout fakturu (PDF)
+        </a>
+    </div>
+</main>
+{% endblock %}

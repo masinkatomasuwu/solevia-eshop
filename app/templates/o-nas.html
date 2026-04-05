@@ -1,0 +1,65 @@
+{# - informační stránka o značce; ukázka statického obsahu a moderního layoutu bez nutnosti JS #}
+{% extends "base.html" %}
+
+{% block title %}O nás - Solevia{% endblock %}
+
+{% block content %}
+<main style="font-family: 'Segoe UI', sans-serif; color: #333; max-width: 900px; margin: 0 auto; padding: 60px 20px; line-height: 1.8;">
+
+    {# - ÚVODNÍ SEKCE: branding a hlavní motto značky #}
+    <section style="text-align: center; margin-bottom: 60px;">
+        <h1 style="font-size: 3em; font-weight: 800; color: #1a3c6e; margin-bottom: 10px;">Solevia</h1>
+        <p style="font-size: 1.2em; color: #666; max-width: 600px; margin: 0 auto;">
+            Česká značka, která věří, že cesta k pohodlí začíná u správného obutí.
+        </p>
+    </section>
+
+    {# - SEKCE PŘÍBĚH: kombinace obrázku z adresáře static a textového obsahu #}
+    <section style="margin-bottom: 80px;">
+        {# - dynamické načtení obrázku přes url_for; border-radius 40px zachovává vizuální identitu webu #}
+        <div style="width: 100%; height: 400px; background: url('{{ url_for('static', filename='images/hero_detail.avif') }}') center/cover; border-radius: 40px; box-shadow: 0 15px 30px rgba(0,0,0,0.1); margin-bottom: 40px;"></div>
+
+        <h2 style="font-size: 2em; font-weight: 700; margin-bottom: 20px;">Náš příběh</h2>
+        <p style="margin-bottom: 20px;">
+            Solevia vznikla v roce 2026 s jasnou vizí: vytvářet boty, které skvěle vypadají, ale především se v nich dá strávit celý den bez únavy. Jsme malý český tým nadšenců do designu a funkčnosti.
+        </p>
+        <p>
+            Věříme v poctivé materiály a férovou cenu. Naše boty nejsou jen produktem, jsou výsledkem hledání rovnováhy mezi moderním stylem a anatomickým pohodlím.
+        </p>
+    </section>
+
+    {# - HODNOTY ZNAČKY: ukázka responzivního layoutu pomocí CSS Grid #}
+    {# - grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) zajišťuje, že se boxy automaticky
+         přeskládají pod sebe, pokud se okno prohlížeče zmenší (např. na mobilu) #}
+    <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 80px;">
+        <div style="background: #f8fbff; padding: 30px; border-radius: 30px; text-align: center; border: 1px solid #eef2f8;">
+            <div style="font-size: 1.5em; margin-bottom: 10px; color: #1a3c6e; font-weight: bold;">Kvalita</div>
+            <p style="font-size: 0.95em; color: #555; margin: 0;">Pečlivý výběr materiálů a kontrola každého švu.</p>
+        </div>
+        <div style="background: #f8fbff; padding: 30px; border-radius: 30px; text-align: center; border: 1px solid #eef2f8;">
+            <div style="font-size: 1.5em; margin-bottom: 10px; color: #1a3c6e; font-weight: bold;">Pohodlí</div>
+            <p style="font-size: 0.95em; color: #555; margin: 0;">Navrženo pro přirozený pohyb a lehký krok.</p>
+        </div>
+        <div style="background: #f8fbff; padding: 30px; border-radius: 30px; text-align: center; border: 1px solid #eef2f8;">
+            <div style="font-size: 1.5em; margin-bottom: 10px; color: #1a3c6e; font-weight: bold;">Férovost</div>
+            <p style="font-size: 0.95em; color: #555; margin: 0;">Kvalitní obuv dostupná pro každého bez příplatků.</p>
+        </div>
+    </section>
+
+    {# - KONTAKTNÍ SEKCE: využití akčních odkazů (mailto: a tel:) pro interaktivitu se zařízením uživatele #}
+    <section style="background: #1a3c6e; color: white; padding: 50px; border-radius: 40px; text-align: center; box-shadow: 0 10px 30px rgba(26, 60, 110, 0.2);">
+        <h2 style="margin-bottom: 30px;">Zůstaňme v kontaktu</h2>
+        <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 40px;">
+            <div>
+                <p style="margin: 0; opacity: 0.7; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px;">Email</p>
+                <a href="mailto:solevia@email.cz" style="color: white; text-decoration: none; font-size: 1.3em; font-weight: bold;">solevia@email.cz</a>
+            </div>
+            <div>
+                <p style="margin: 0; opacity: 0.7; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px;">Telefon</p>
+                <a href="tel:606092940" style="color: white; text-decoration: none; font-size: 1.3em; font-weight: bold;">606 092 940</a>
+            </div>
+        </div>
+    </section>
+
+</main>
+{% endblock %}

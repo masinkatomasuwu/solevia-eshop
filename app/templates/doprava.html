@@ -1,0 +1,99 @@
+{# - šablona pro sběr doručovacích údajů a výběr dopravy v rámci nákupního procesu #}
+{% extends "base.html" %}
+
+{% block title %}Doprava a platba - Solevia{% endblock %}
+
+{% block content %}
+<main style="padding: 60px 20px; max-width: 800px; margin: 0 auto; font-family: 'Segoe UI', sans-serif;">
+    <h1 style="text-align: center; margin-bottom: 40px; font-weight: 800; color: #1a3c6e; font-size: 2.5em;">Doprava a doručení</h1>
+
+    <div style="background: white; border-radius: 35px; padding: 40px; box-shadow: 0 15px 40px rgba(0,0,0,0.05); border: 1px solid #f0f0f0;">
+        {# - metoda POST: formulář odesílá citlivá data (adresa, telefon) skrytě v těle požadavku #}
+        <form method="POST" id="shippingForm">
+
+            {# --- KONTAKTNÍ ÚDAJE --- #}
+            <h3 style="color: #1a3c6e; margin-bottom: 25px; font-size: 1.2em; text-transform: uppercase; letter-spacing: 1px; font-weight: 800;">Kontaktní údaje</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+                <input type="text" name="jmeno" id="jmeno" placeholder="Jméno" required style="padding: 15px; border-radius: 15px; border: 1px solid #e2e8f0; outline: none;">
+                <input type="text" name="prijmeni" id="prijmeni" placeholder="Příjmení" required style="padding: 15px; border-radius: 15px; border: 1px solid #e2e8f0; outline: none;">
+                {# - input pro telefon s vynucenou délkou #}
+                <input type="tel"
+                       name="telefon"
+                       id="telefon"
+                       placeholder="Telefon (9 číslic, např. 123456789)"
+                       required
+                       maxlength="9"
+                       inputmode="numeric"
+                       style="padding: 15px; border-radius: 15px; border: 1px solid #e2e8f0; outline: none; grid-column: span 2;">
+            </div>
+
+            {# --- ADRESA --- #}
+            <h3 style="color: #1a3c6e; margin-bottom: 25px; font-size: 1.2em; text-transform: uppercase; letter-spacing: 1px; font-weight: 800;">Adresa doručení</h3>
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 30px;">
+                <input type="text" name="ulice" id="ulice" placeholder="Ulice a číslo popisné" required style="padding: 15px; border-radius: 15px; border: 1px solid #e2e8f0; outline: none; grid-column: span 2;">
+                <input type="text" name="mesto" id="mesto" placeholder="Město" required style="padding: 15px; border-radius: 15px; border: 1px solid #e2e8f0; outline: none;">
+                {# - input pro PSČ s vynucenou délkou #}
+                <input type="text"
+                       name="psc"
+                       id="psc"
+                       placeholder="PSČ (5 číslic)"
+                       required
+                       maxlength="5"
+                       inputmode="numeric"
+                       style="padding: 15px; border-radius: 15px; border: 1px solid #e2e8f0; outline: none;">
+            </div>
+
+            {# --- VOLBA DOPRAVY --- #}
+            <h3 style="color: #1a3c6e; margin-bottom: 25px; font-size: 1.2em; text-transform: uppercase; letter-spacing: 1px; font-weight: 800;">Způsob dopravy</h3>
+            <div style="margin-bottom: 40px; display: grid; gap: 15px;">
+                <label style="display: flex; align-items: center; padding: 15px; border: 1px solid #e2e8f0; border-radius: 15px; cursor: pointer;">
+                    <input type="radio" name="doprava" value="PPL" checked style="margin-right: 15px;">
+                    <div>
+                        <span style="font-weight: 700; color: #1a3c6e;">PPL Kurýr</span><br>
+                        <small style="color: #64748b;">Doručení na adresu (99 Kč)</small>
+                    </div>
+                </label>
+                <label style="display: flex; align-items: center; padding: 15px; border: 1px solid #e2e8f0; border-radius: 15px; cursor: pointer;">
+                    <input type="radio" name="doprava" value="Zasilkovna" style="margin-right: 15px;">
+                    <div>
+                        <span style="font-weight: 700; color: #1a3c6e;">Zásilkovna</span><br>
+                        <small style="color: #64748b;">Na výdejní místo (69 Kč)</small>
+                    </div>
+                </label>
+            </div>
+
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                {# - button nyní spouští JavaScriptovou funkci pro kontrolu před odesláním #}
+                <button type="submit"
+                        onclick="return checkForm()"
+                        style="width: 100%; padding: 20px; background: #1a3c6e; color: white; border: none; border-radius: 25px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; cursor: pointer; transition: 0.3s;"
+                        onmouseover="this.style.background='#3b82f6'"
+                        onmouseout="this.style.background='#1a3c6e'">
+                    Pokračovat k platbě →
+                </button>
+            </div>
+        </form>
+    </div>
+</main>
+
+<script>
+function checkForm() {
+    var telefon = document.getElementById('telefon').value;
+    var psc = document.getElementById('psc').value;
+
+    // Kontrola telefonu - musí mít přesně 9 číslic a být to čísla
+    if (!/^\d{9}$/.test(telefon)) {
+        alert("Chyba: Telefonní číslo musí obsahovat přesně 9 číslic.");
+        return false;
+    }
+
+    // Kontrola PSČ - musí mít přesně 5 číslic a být to čísla
+    if (!/^\d{5}$/.test(psc)) {
+        alert("Chyba: PSČ musí obsahovat přesně 5 číslic.");
+        return false;
+    }
+
+    return true; // Pokud je vše OK, formulář se odešle
+}
+</script>
+{% endblock %}

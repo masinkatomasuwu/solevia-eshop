@@ -1,0 +1,131 @@
+{# - detailní zobrazení jednoho konkrétního produktu (boty) #}
+{% extends "base.html" %}
+
+{# - dynamický titulek stránky podle názvu produktu z databáze #}
+{% block title %} {{ produkt.name }} - Solevia {% endblock %}
+
+{% block content %}
+    <main style="padding: 60px 20px; max-width: 1300px; margin: 0 auto; font-family: 'Segoe UI', sans-serif;">
+
+        {# --- DROBTOVÁ NAVIGACE (Breadcrumbs) --- #}
+        <nav style="margin-bottom: 40px;">
+            {# - url_for('main.boty') nás vrátí na kompletní seznam všech bot #}
+            <a href="{{ url_for('main.boty') }}" style="display: inline-flex; align-items: center; gap: 8px; color: #1a3c6e; text-decoration: none; font-weight: 700; text-transform: uppercase; font-size: 0.85em; letter-spacing: 1px; transition: 0.3s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#1a3c6e'">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+                </svg>
+                Zpět do kolekce
+            </a>
+        </nav>
+
+        {# --- HLAVNÍ GRID DETAILU ---
+           - Rozdělení na dva sloupce: vlevo obrázek, vpravo textové informace
+        #}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 80px; align-items: start;">
+
+            {# --- LEVÝ SLOUPEC: OBRÁZEK --- #}
+            <div style="position: sticky; top: 120px;">
+                <div style="background: #fff; border-radius: 40px; padding: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.05); border: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: center; min-height: 500px; overflow: hidden; position: relative;">
+
+                    {# - Štítek slevy: Zobrazí se pouze, pokud má produkt v DB nastavenou slevu #}
+                    {% if produkt.discount_percent > 0 %}
+                    <div style="position: absolute; top: 30px; left: 30px; background: #e11d48; color: white; padding: 10px 20px; border-radius: 15px; font-weight: 900; font-size: 1em; z-index: 2; box-shadow: 0 10px 20px rgba(225, 29, 72, 0.3);">
+                        -{{ produkt.discount_percent }}%
+                    </div>
+                    {% endif %}
+
+                    {% if produkt.image %}
+                        <img src="{{ url_for('static', filename=produkt.image) }}"
+                             alt="{{ produkt.name }}"
+                             style="max-width: 100%; max-height: 500px; object-fit: contain; transition: transform 0.5s;"
+                             onmouseover="this.style.transform='scale(1.05)'"
+                             onmouseout="this.style.transform='scale(1)'">
+                    {% else %}
+                        <div style="color: #cbd5e1; font-size: 1.2em; font-weight: 600;">Bez náhledu</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# --- PRAVÝ SLOUPEC: INFORMACE --- #}
+            <div style="padding-top: 20px;">
+                <span style="display: inline-block; background: #f1f5f9; color: #1a3c6e; padding: 6px 15px; border-radius: 12px; font-weight: 800; font-size: 0.75em; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 20px;">
+                    Sneakers Edition
+                </span>
+
+                <h1 style="font-size: 3.5rem; font-weight: 900; color: #1a3c6e; line-height: 1.1; margin-bottom: 25px; letter-spacing: -2px;">
+                    {{ produkt.name }}
+                </h1>
+
+                {# --- CENA A SKLADOVOST --- #}
+                <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 35px;">
+                    {% if produkt.discount_percent > 0 %}
+                        <div style="display: flex; flex-direction: column;">
+                            {# - Původní přeškrtnutá cena #}
+                            <span style="text-decoration: line-through; color: #94a3b8; font-size: 1.2em; font-weight: 600;">
+                                {{ produkt.price | round(2) }} Kč
+                            </span>
+                            {# - Finální cena po slevě (vypočítaná hybridní vlastnost z modelu) #}
+                            <span style="font-size: 3rem; font-weight: 900; color: #e11d48; line-height: 1;">
+                                {{ produkt.final_price | round(2) }} Kč
+                            </span>
+                        </div>
+                    {% else %}
+                        {# - Standardní cena bez slevy #}
+                        <span style="font-size: 3rem; font-weight: 900; color: #1a3c6e;">
+                            {{ produkt.price | round(2) }} Kč
+                        </span>
+                    {% endif %}
+
+                    {# - Indikátor skladu: Zelená pro dostupné, červená pro vyprodané #}
+                    {% if produkt.stock > 0 %}
+                    <span style="font-size: 0.9em; background: #dcfce7; color: #166534; padding: 8px 16px; border-radius: 15px; font-weight: 800; text-transform: uppercase;">
+                        Skladem: {{ produkt.stock }} ks
+                    </span>
+                    {% else %}
+                    <span style="font-size: 0.9em; background: #fee2e2; color: #b91c1c; padding: 8px 16px; border-radius: 15px; font-weight: 900; text-transform: uppercase;">
+                        Out of Stock
+                    </span>
+                    {% endif %}
+                </div>
+
+                {# --- POPIS PRODUKTU --- #}
+                <div style="border-top: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; padding: 30px 0; margin-bottom: 40px;">
+                    <h3 style="font-size: 1em; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 15px; font-weight: 800;">Popis modelu</h3>
+                    <p style="font-size: 1.1rem; line-height: 1.8; color: #64748b; margin: 0;">
+                        {% if produkt.description %}
+                            {{ produkt.description }}
+                        {% else %}
+                            K tomuto modelu zatím nebyl přidán detailní popis.
+                        {% endif %}
+                    </p>
+                </div>
+
+                {# --- TLAČÍTKO AKCE --- #}
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    {% if produkt.stock > 0 %}
+                    {# - Funkční odkaz do košíku; po kliknutí se bota přidá do DB tabulky CartItem #}
+                    <a href="{{ url_for('cart.pridat_do_kosiku', produkt_id=produkt.id) }}"
+                       style="display: block; width: 100%; padding: 22px; background: #1a3c6e; color: white; text-align: center; border-radius: 25px; text-decoration: none; font-weight: 800; font-size: 1.1em; text-transform: uppercase; letter-spacing: 2px; transition: 0.3s; box-shadow: 0 15px 35px rgba(26, 60, 110, 0.2);"
+                       onmouseover="this.style.background='#3b82f6'; this.style.transform='translateY(-3px)'"
+                       onmouseout="this.style.background='#1a3c6e'; this.style.transform='translateY(0)'">
+                        Přidat do košíku
+                    </a>
+                    {% else %}
+                    {# - Vypnuté tlačítko v případě, že stock == 0 #}
+                    <button disabled style="width: 100%; padding: 22px; background: #f1f5f9; color: #94a3b8; border: none; border-radius: 25px; font-weight: 800; text-transform: uppercase; cursor: not-allowed;">
+                        Momentálně nedostupné
+                    </button>
+                    {% endif %}
+                </div>
+
+                {# --- TECHNICKÉ ÚDAJE --- #}
+                <div style="margin-top: 60px; padding: 20px; background: #f8fbff; border-radius: 20px; border: 1px solid #eef2f8;">
+                    <p style="margin: 0; font-size: 0.85em; color: #64748b; font-weight: 600;">
+                        Katalogové číslo: <span style="color: #1a3c6e;">SLV-{{ produkt.id }}</span><br>
+                        Stav: <span style="color: #1a3c6e;">{% if produkt.stock > 0 %}Dostupné{% else %}Není skladem{% endif %}</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </main>
+{% endblock %}

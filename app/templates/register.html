@@ -1,0 +1,75 @@
+{# - šablona pro registraci nového uživatele do systému #}
+{% extends "base.html" %}
+
+{# - dynamické nastavení titulku stránky #}
+{% block title %}Vytvořit účet - Solevia{% endblock %}
+
+{% block content %}
+<main style="padding: 80px 20px; max-width: 550px; margin: 0 auto; font-family: 'Segoe UI', sans-serif;">
+
+    <div style="text-align: center; margin-bottom: 40px;">
+        <span style="display: inline-block; background: #f1f5f9; color: #1a3c6e; padding: 8px 20px; border-radius: 15px; font-weight: 800; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 15px;">
+            Vítej v komunitě
+        </span>
+        <h1 style="font-size: 3em; font-weight: 900; color: #1a3c6e; letter-spacing: -2px; margin: 0;">Join Solevia</h1>
+        <p style="color: #64748b; font-weight: 500; margin-top: 10px;">Získej přístup k exkluzivním dropům a slevám.</p>
+    </div>
+
+    <div style="background: white; border-radius: 35px; padding: 45px; box-shadow: 0 20px 50px rgba(0,0,0,0.05); border: 1px solid #f0f0f0;">
+        {# - formulář odesílá data metodou POST na aktuální URL (obsluhuje auth.register v Pythonu) #}
+        <form method="post">
+
+            <div style="margin-bottom: 25px;">
+                <label for="username" style="display: block; margin-bottom: 10px; font-weight: 700; color: #1a3c6e; font-size: 0.9em; text-transform: uppercase; letter-spacing: 0.5px;">Uživatelské jméno</label>
+                {# - atribut name="username" je klíč, pod kterým Python získá hodnotu z request.form #}
+                <input type="text" id="username" name="username" required
+                       style="width: 100%; padding: 16px; border: 1px solid #e2e8f0; border-radius: 20px; outline: none; background: #f8fbff; font-weight: 600; transition: 0.3s;"
+                       onfocus="this.style.borderColor='#3b82f6'; this.style.background='white'">
+            </div>
+
+            <div style="margin-bottom: 25px;">
+                <label for="email" style="display: block; margin-bottom: 10px; font-weight: 700; color: #1a3c6e; font-size: 0.9em; text-transform: uppercase; letter-spacing: 0.5px;">Email</label>
+                {# - typ "email" zajistí základní validaci formátu (přítomnost @) přímo v prohlížeči #}
+                <input type="email" id="email" name="email" required placeholder="např. jmeno@priklad.cz"
+                       style="width: 100%; padding: 16px; border: 1px solid #e2e8f0; border-radius: 20px; outline: none; background: #f8fbff; font-weight: 600; transition: 0.3s;"
+                       onfocus="this.style.borderColor='#3b82f6'; this.style.background='white'">
+            </div>
+
+            <div style="margin-bottom: 25px;">
+                <label for="password" style="display: block; margin-bottom: 10px; font-weight: 700; color: #1a3c6e; font-size: 0.9em; text-transform: uppercase; letter-spacing: 0.5px;">Heslo</label>
+                {# - heslo se v Pythonu následně zahashuje pomocí werkzeug.security #}
+                <input type="password" id="password" name="password" required
+                       placeholder="Min. 8 znaků, velké písmeno, číslice"
+                       style="width: 100%; padding: 16px; border: 1px solid #e2e8f0; border-radius: 20px; outline: none; background: #f8fbff; font-weight: 600; transition: 0.3s;"
+                       onfocus="this.style.borderColor='#3b82f6'; this.style.background='white'">
+            </div>
+
+            <div style="margin-bottom: 35px;">
+                <label for="confirm_password" style="display: block; margin-bottom: 10px; font-weight: 700; color: #1a3c6e; font-size: 0.9em; text-transform: uppercase; letter-spacing: 0.5px;">Potvrzení hesla</label>
+                {# - shoda hesla a potvrzení se kontroluje v souboru auth.py #}
+                <input type="password" id="confirm_password" name="confirm_password" required
+                       style="width: 100%; padding: 16px; border: 1px solid #e2e8f0; border-radius: 20px; outline: none; background: #f8fbff; font-weight: 600; transition: 0.3s;"
+                       onfocus="this.style.borderColor='#3b82f6'; this.style.background='white'">
+            </div>
+
+            {# - tlačítko typu submit odešle celý formulář ke zpracování #}
+            <button type="submit"
+                    style="width: 100%; padding: 20px; background: #1a3c6e; color: white; border: none; border-radius: 25px; font-size: 1.1em; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: 0.3s; box-shadow: 0 15px 30px rgba(26, 60, 110, 0.2);"
+                    onmouseover="this.style.background='#3b82f6'; this.style.transform='translateY(-2px)'"
+                    onmouseout="this.style.background='#1a3c6e'; this.style.transform='translateY(0)'">
+                Registrovat se
+            </button>
+        </form>
+    </div>
+
+    <div style="text-align: center; margin-top: 30px;">
+        <p style="color: #64748b; font-weight: 600;">
+            Již máš účet?
+            {# - odkaz na přihlašovací stránku pomocí url_for pro správné generování tras #}
+            <a href="{{ url_for('auth.login') }}" style="color: #1a3c6e; text-decoration: none; font-weight: 800; margin-left: 5px; border-bottom: 2px solid #3b82f6;">
+                Přihlásit se
+            </a>
+        </p>
+    </div>
+</main>
+{% endblock %}

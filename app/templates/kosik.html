@@ -1,0 +1,112 @@
+{# - šablona pro zobrazení a správu obsahu nákupního košíku #}
+{% extends "base.html" %}
+
+{% block title %}Váš košík - Solevia{% endblock %}
+
+{% block content %}
+<main style="padding: 60px 20px; max-width: 1000px; margin: 0 auto; font-family: 'Segoe UI', sans-serif;">
+    <h1 style="text-align: center; margin-bottom: 50px; font-weight: 800; color: #1a3c6e; font-size: 2.5em;">Váš košík</h1>
+
+    {# - podmínka: pokud košík není prázdný, vypíšeme položky, jinak ukážeme prázdný stav #}
+    {% if kosik_produkty %}
+        <div style="display: grid; gap: 20px;">
+            {# - Jinja2 cyklus: projede všechny CartItem objekty aktuálního uživatele #}
+            {% for polozka in kosik_produkty %}
+                <div style="display: flex; border: 1px solid #f0f0f0; border-radius: 35px; padding: 25px; background: white; box-shadow: 0 10px 25px rgba(0,0,0,0.03); align-items: center; transition: transform 0.2s;">
+
+                    {# - zobrazení fotky produktu (vazba přes cizí klíč v modelu CartItem) #}
+                    <div class="cart-item-image-container" style="margin-right: 30px; flex-shrink: 0; width: 140px; height: 110px; background: #f8fbff; border-radius: 20px; display: flex; align-items: center; justify-content: center; padding: 10px; overflow: hidden;">
+                        {% if polozka.product.image %}
+                            <img src="{{ url_for('static', filename=polozka.product.image) }}"
+                                 alt="{{ polozka.product.name }}"
+                                 style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                        {% else %}
+                            <div style="color: #ccc; font-size: 0.8em; font-weight: 600;">Bez fotky</div>
+                        {% endif %}
+                    </div>
+
+                    <div style="flex: 1;">
+                        <h3 style="margin: 0 0 5px; font-weight: 800; color: #1a3c6e; font-size: 1.3em;">{{ polozka.product.name }}</h3>
+                        <p style="color: #64748b; font-size: 0.9em; margin: 0 0 15px; line-height: 1.4;">{{ polozka.product.description[:100] }}{% if polozka.product.description|length > 100 %}...{% endif %}</p>
+
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
+
+                            {# --- LOGIKA PRO ZMĚNU MNOŽSTVÍ --- #}
+                            {# - používám malé formuláře pro každé tlačítko (+/-), které posílají POST požadavek do cart.kosik #}
+                            <div style="display: flex; align-items: center; background: #f1f5f9; border-radius: 15px; padding: 5px; border: 1px solid #e2e8f0;">
+                                {# - Tlačítko MÍNUS: pošle aktuální množství snížené o 1 #}
+                                <form method="post" action="{{ url_for('cart.kosik') }}" style="margin: 0;">
+                                    <input type="hidden" name="produkt_id" value="{{ polozka.product.id }}">
+                                    <input type="hidden" name="quantity" value="{{ polozka.quantity - 1 }}">
+                                    <button type="submit" name="update_quantity" style="width: 35px; height: 35px; background: white; color: #1a3c6e; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">−</button>
+                                </form>
+
+                                <span style="font-size: 1.1em; min-width: 45px; text-align: center; font-weight: 800; color: #1a3c6e;">{{ polozka.quantity }}</span>
+
+                                {# - Tlačítko PLUS: pošle aktuální množství zvýšené o 1 #}
+                                <form method="post" action="{{ url_for('cart.kosik') }}" style="margin: 0;">
+                                    <input type="hidden" name="produkt_id" value="{{ polozka.product.id }}">
+                                    <input type="hidden" name="quantity" value="{{ polozka.quantity + 1 }}">
+                                    <button type="submit" name="update_quantity" style="width: 35px; height: 35px; background: white; color: #1a3c6e; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">+</button>
+                                </form>
+                            </div>
+
+                            <div style="display: flex; align-items: center; gap: 25px;">
+                                {# - celková cena za položku (množství * cena) vypočtená pomocí hybridní vlastnosti v modelu CartItem #}
+                                <span style="font-size: 1.6em; font-weight: 900; color: #1a3c6e;">{{ polozka.total_price }} Kč</span>
+                                <a href="{{ url_for('cart.odebrat_z_kosiku', produkt_id=polozka.product.id) }}" style="color: #e11d48; font-weight: 700; text-decoration: none; font-size: 0.85em; background: #fff1f2; padding: 10px 18px; border-radius: 15px; transition: 0.2s;">Odebrat</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        {# --- REKAPITULACE CENY --- #}
+        <div style="text-align: right; margin-top: 50px; padding: 35px; background: #f8fbff; border-radius: 35px; border: 1px solid #eef2f8;">
+            <span style="font-size: 1.3em; color: #64748b; margin-right: 15px;">Celkem k úhradě:</span>
+            <span style="font-size: 2.5em; font-weight: 900; color: #1a3c6e;">
+                {# - podmínka pro zobrazení slevy: pokud je aktivní kód, ukážeme i původní přeškrtnutou cenu #}
+                {% if discount_percent > 0 %}
+                    <span style="text-decoration: line-through; color: #cbd5e1; font-size: 0.6em; vertical-align: middle; margin-right: 15px;">{{ (celkova_cena + discount_amount) | round(2) }} Kč</span>
+                    {{ celkova_cena | round(2) }} Kč
+                {% else %}
+                    {{ celkova_cena | round(2) }} Kč
+                {% endif %}
+            </span>
+        </div>
+
+        {# --- SEKCE PRO SLEVOVÝ KÓD --- #}
+        <div style="margin-top: 40px; text-align: center; padding: 35px; border: 2px dashed #e2e8f0; border-radius: 35px; background: #fff;">
+            <h4 style="margin-bottom: 20px; font-weight: 800; color: #1a3c6e; text-transform: uppercase; font-size: 0.9em; letter-spacing: 1px;">Máš slevový kód?</h4>
+            <form method="post" action="{{ url_for('cart.kosik') }}" style="max-width: 450px; margin: 0 auto; display: flex; gap: 12px;">
+                <input type="text" name="discount_code" placeholder="Zadej kód z minihry" style="flex: 1; padding: 16px; border: 1px solid #e2e8f0; border-radius: 20px; outline: none; background: #f8fafc; font-weight: 600;">
+                <button type="submit" name="apply_discount" style="padding: 16px 30px; background: #1a3c6e; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: 800; text-transform: uppercase;">Použít</button>
+            </form>
+            {# - zobrazení zprávy o platnosti kódu z backendu #}
+            {% if discount_message %}<p style="margin-top: 15px; color: {% if discount_success %}#16a34a{% else %}#e11d48{% endif %}; font-weight: 800;">{{ discount_message }}</p>{% endif %}
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 30px; gap: 20px;">
+            {# - odkaz pro smazání všech položek najednou (vyprázdnění košíku) #}
+            <a href="{{ url_for('cart.kosik', clear=1) }}" style="padding: 15px 30px; color: #94a3b8; text-decoration: none; font-weight: 700; border: 2px solid #f1f5f9; border-radius: 20px;">
+                Vyprázdnit košík
+            </a>
+
+            {# - hlavní tlačítko pro přechod do dalšího kroku objednávky (Doprava) #}
+            <a href="{{ url_for('cart.doprava') }}"
+               style="flex-grow: 1; text-align: center; padding: 20px; background: #1a3c6e; color: white; border-radius: 25px; font-weight: 800; text-decoration: none; text-transform: uppercase; letter-spacing: 2px; transition: 0.3s; box-shadow: 0 10px 20px rgba(26, 60, 110, 0.2);">
+                Pokračovat k doprava a adrese
+            </a>
+        </div>
+
+    {# --- PRÁZDNÝ KOŠÍK --- #}
+    {% else %}
+        <div style="text-align: center; padding: 120px 20px; background: white; border-radius: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03);">
+            <div style="font-size: 6em; margin-bottom: 20px; filter: grayscale(1); opacity: 0.1;">🛒</div>
+            <h2 style="color: #64748b; font-weight: 700; margin-bottom: 30px;">Váš košík zeje prázdnotou.</h2>
+            <a href="{{ url_for('main.boty') }}" style="display: inline-block; padding: 18px 45px; background: #1a3c6e; color: white; text-decoration: none; border-radius: 25px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Jít nakupovat</a>
+        </div>
+    {% endif %}
+</main>
+{% endblock %}
