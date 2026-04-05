@@ -1,7 +1,7 @@
 Návod na spuštění e-shopu Solevia:
 
 Instalace knihoven
-Nejdříve si nainstalujte potřebné balíčky. Přes soubor:
+Nejdříve si nainstalujte potřebné balíčky z:
 pip install -r requirements.txt
 
 Jak zapnout Web (E-shop)
